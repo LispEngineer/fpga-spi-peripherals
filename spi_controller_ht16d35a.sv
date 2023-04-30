@@ -52,13 +52,13 @@ module spi_controller_ht16d35a #(
   // If we have 50 MHz and want <= 4 MHz sck output, we need 12.5x, 
   // call it 16 since we prefer an multiple of 4 value so we can halve or quarter it.
   parameter CLK_DIV = 16,
-  parameter DIV_SZ = $clog2(CLK_DIV),
+  parameter DIV_SZ = $clog2(CLK_DIV + 1),
   parameter CLK_2us = 100, // 2µs at current clock rate (50MHz = 20ns => 100)
-  parameter us2_SZ = $clog2(CLK_2us),
+  parameter us2_SZ = $clog2(CLK_2us + 1),
 
   // How many bytes do you want to be able to write at a time?
   parameter OUT_BYTES = 8,
-  parameter OUT_BYTES_SZ = $clog2(OUT_BYTES)
+  parameter OUT_BYTES_SZ = $clog2(OUT_BYTES + 1)
 ) (
   input logic clk,
   input logic reset,
@@ -79,18 +79,19 @@ module spi_controller_ht16d35a #(
 
 
 // Our half-bit times are half the CLK_DIV
-localparam CLK_HALF_BIT = $ceil(CLK_DIV / 2);
-localparam HALF_BIT_SZ = $clog2(CLK_BIT);
+localparam CLK_HALF_BIT = (CLK_DIV + 1) >> 1; // $ceil not working for QUESTA
+localparam HALF_BIT_SZ = $clog2(CLK_HALF_BIT) + 1; // This should be 4 but is coming out 3
+localparam HALF_BIT_START = (HALF_BIT_SZ)'(CLK_HALF_BIT);
 
 typedef enum int unsigned {
   S_IDLE              = 0,
-  S_START_SENDING     = 1,
+  S_SEND_BITS     = 1,
   S_INTER_BYTE        = 2
 } state_t;
 
 state_t state = S_IDLE;
 
-logic [HALF_BIT_SZ-1:0] half_bit_counter = (HALF_BIT_SZ)'(CLK_HALF_BIT);
+logic [HALF_BIT_SZ-1:0] half_bit_counter = HALF_BIT_START;
 
 // Saved data from activation
 logic  [NUM_SELECTS-1:0] r_in_cs; // Active high for which chip(s) you want enabled
@@ -100,9 +101,10 @@ logic [OUT_BYTES_SZ-1:0] r_out_count;
 logic [OUT_BYTES_SZ-1:0] current_byte;
 logic [2:0] current_bit; // We send MSB first
 
-localparam INTER_BYTE_DELAY = $ceil(CLK_2us / CLK_HALF_BIT);
-localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY);
-localparam IB_DELAY_START = (IB_DELAY_SZ)'(INTER_BYTE_DELAY);
+// Calculate a 2µs delay
+localparam INTER_BYTE_DELAY = ((CLK_2us + CLK_DIV - 1) / CLK_DIV) * 2; // $ceil not working for Questa
+localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY + 1);
+localparam IB_DELAY_START = (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 3); // This -3 was found with simulation but still results in a 2,380µs clock peak
 logic [IB_DELAY_SZ-1:0] inter_byte_delay;
 
 always_ff @(posedge clk) begin: main_spi_controller
@@ -113,7 +115,7 @@ always_ff @(posedge clk) begin: main_spi_controller
 
   end: wait_half_bit_time else begin: do_state_machine
     // Restart our half-bit counter
-    half_bit_counter <= (HALF_BIT_SZ)'(CLK_HALF_BIT);
+    half_bit_counter <= HALF_BIT_START;
 
     case (state)
 
@@ -123,7 +125,12 @@ always_ff @(posedge clk) begin: main_spi_controller
       sck <= '1; // clock idles high
       busy <= '0;
 
-      if (activate) begin: activation
+      // FIXME: If activated with no chip selects, should we
+      // just pulse the busy and go back to idle?
+      // Or just assert busy while it's activated and no chip selects?
+      // Same with zero out_count.
+
+      if (activate && in_cs != '0 && out_count != '0) begin: activation
         r_in_cs <= in_cs;
         r_out_data <= out_data;
         r_out_count <= out_count;
@@ -134,13 +141,13 @@ always_ff @(posedge clk) begin: main_spi_controller
         // Enable the necessary chips for the very first thing we do
         cs <= ~in_cs;
         // Keep the clock high for a cycle (per tCSL)
-        state <= S_START_SENDING;
+        state <= S_SEND_BITS;
         busy <= '1;
       end: activation
 
     end: s_idle
 
-    S_START_SENDING: begin: start_sending
+    S_SEND_BITS: begin: start_sending
       // Always enter this state with the sck high!!
 
       sck <= ~sck;
@@ -159,7 +166,9 @@ always_ff @(posedge clk) begin: main_spi_controller
           // before our next bit or releasing CS.
           state <= S_INTER_BYTE;
           inter_byte_delay <= IB_DELAY_START;
-        end: last_bit
+        end: last_bit else begin: more_bits
+          current_bit <= current_bit - 1'd1;
+        end: more_bits
       end // half bit
 
     end: start_sending
@@ -174,9 +183,9 @@ always_ff @(posedge clk) begin: main_spi_controller
 
       if (inter_byte_delay == 0) begin
         // Are we done sending
-        if (current_byte == r_out_count) begin
+        if (current_byte != r_out_count - 1'd1) begin
           // We have more bytes to send.
-          state <= S_START_SENDING;
+          state <= S_SEND_BITS;
           current_byte <= current_byte + 1'd1;
           current_bit <= 3'd7;
         end else begin
