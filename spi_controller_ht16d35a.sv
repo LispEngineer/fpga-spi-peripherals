@@ -30,6 +30,10 @@ drive the DIO pin for data output, sort of like I²C.
 3. For "read mode" (omitted, we're not implementing it)
 4. For a multi-byte command there has to be a 2µs clock held high
    between each byte. (2 1/1,000,000ths of a second, or one 500,000th of a second)
+   * This has to also happen after the final bit before releasing CS
+
+FIXME: Power up reset has to wait either 1 or 10ms - have that done
+outside this module?
 
 */
 
@@ -81,8 +85,7 @@ localparam HALF_BIT_SZ = $clog2(CLK_BIT);
 typedef enum int unsigned {
   S_IDLE              = 0,
   S_START_SENDING     = 1,
-  S_INTER_BYTE        = 2,
-  S_FINISH_SENDING    = 3
+  S_INTER_BYTE        = 2
 } state_t;
 
 state_t state = S_IDLE;
@@ -138,6 +141,7 @@ always_ff @(posedge clk) begin: main_spi_controller
     end: s_idle
 
     S_START_SENDING: begin: start_sending
+      // Always enter this state with the sck high!!
 
       sck <= ~sck;
 
@@ -151,31 +155,55 @@ always_ff @(posedge clk) begin: main_spi_controller
         // the data will be read by the HT16D35A,
         // so we should get ready to send the next bit
         if (current_bit == 0) begin: last_bit
-          // We sent our last bit.
-          // Do we have more?
-          if (current_byte == r_out_count) begin: last_byte
-            state <= S_FINISH_SENDING;
-          end: last_byte else begin: more_bytes
-            state <= S_INTER_BYTE;
-            inter_byte_delay <= IB_DELAY_START;
-          end: more_bytes
+          // We sent our last bit. We need to delay
+          // before our next bit or releasing CS.
+          state <= S_INTER_BYTE;
+          inter_byte_delay <= IB_DELAY_START;
         end: last_bit
       end // half bit
 
     end: start_sending
 
+    S_INTER_BYTE: begin: inter_byte
+      // During the inter byte, we hold the clock high and the chip select low
+      // for a desired 2µs (page 51). If we have more bytes, we keep the CS low,
+      // and send bytes, but if not, we release the CS after.
+      // See timing diagram on page 6 for tCSH.
+
+      // ASSERT: sck is high
+
+      if (inter_byte_delay == 0) begin
+        // Are we done sending
+        if (current_byte == r_out_count) begin
+          // We have more bytes to send.
+          state <= S_START_SENDING;
+          current_byte <= current_byte + 1'd1;
+          current_bit <= 3'd7;
+        end else begin
+          // No more bytes. We have to hold CS high for tCSW
+          // (which is conveniently 2/5ths of a clock cycle time).
+          // See pages 5-6.
+          cs <= '1;
+          busy <= '0;
+          state <= S_IDLE;
+        end
+      end
+      // We don't care if this underflows
+      inter_byte_delay <= inter_byte_delay - 1'd1;
+    end: inter_byte
+
     endcase // state
 
   end: do_state_machine
 
-  if (reset) begin: last_assignment_wins
+  if (reset) begin: last_assignment_wins_reset
     // Do reset per http://fpgacpu.ca/fpga/verilog.html#resets
     half_bit_counter <= (HALF_BIT_SZ)'(CLK_HALF_BIT);
     cs <= '1; // no chips selected (active low)
     sck <= '1; // clock idles high
     busy <= '1; // Busy while in reset
     state <= S_IDLE;
-  end: last_assignment_wins
+  end: last_assignment_wins_reset
 
 end: main_spi_controller
 
