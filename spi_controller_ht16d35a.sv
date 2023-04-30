@@ -80,7 +80,9 @@ localparam HALF_BIT_SZ = $clog2(CLK_BIT);
 
 typedef enum int unsigned {
   S_IDLE              = 0,
-  S_START_SENDING     = 1
+  S_START_SENDING     = 1,
+  S_INTER_BYTE        = 2,
+  S_FINISH_SENDING    = 3
 } state_t;
 
 state_t state = S_IDLE;
@@ -92,7 +94,13 @@ logic  [NUM_SELECTS-1:0] r_in_cs; // Active high for which chip(s) you want enab
 logic              [7:0] r_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] r_out_count;
 
+logic [OUT_BYTES_SZ-1:0] current_byte;
+logic [2:0] current_bit; // We send MSB first
 
+localparam INTER_BYTE_DELAY = $ceil(CLK_2us / CLK_HALF_BIT);
+localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY);
+localparam IB_DELAY_START = (IB_DELAY_SZ)'(INTER_BYTE_DELAY);
+logic [IB_DELAY_SZ-1:0] inter_byte_delay;
 
 always_ff @(posedge clk) begin: main_spi_controller
 
@@ -117,6 +125,9 @@ always_ff @(posedge clk) begin: main_spi_controller
         r_out_data <= out_data;
         r_out_count <= out_count;
 
+        current_byte <= '0;
+        current_bit <= 3'd7;
+
         // Enable the necessary chips for the very first thing we do
         cs <= ~in_cs;
         // Keep the clock high for a cycle (per tCSL)
@@ -125,6 +136,33 @@ always_ff @(posedge clk) begin: main_spi_controller
       end: activation
 
     end: s_idle
+
+    S_START_SENDING: begin: start_sending
+
+      sck <= ~sck;
+
+      if (sck) begin
+        // Clock is currently high, will transition low.
+        // So, send our output bit for reading when it transitions high again
+        dio <= r_out_data[current_byte][current_bit];
+
+      end else begin
+        // Clock is currently low, when it shifts high
+        // the data will be read by the HT16D35A,
+        // so we should get ready to send the next bit
+        if (current_bit == 0) begin: last_bit
+          // We sent our last bit.
+          // Do we have more?
+          if (current_byte == r_out_count) begin: last_byte
+            state <= S_FINISH_SENDING;
+          end: last_byte else begin: more_bytes
+            state <= S_INTER_BYTE;
+            inter_byte_delay <= IB_DELAY_START;
+          end: more_bytes
+        end: last_bit
+      end // half bit
+
+    end: start_sending
 
     endcase // state
 
