@@ -44,10 +44,9 @@ module spi_controller_ht16d35a #(
   parameter NUM_SELECTS = 2,
   parameter SELECT_SZ = $clog2(NUM_SELECTS),
 
-  // How fast do we run the output SPI clock, as
-  // a divider from the provided clock.
+  // How fast do we run the output SPI clock, as a divider from the provided clock.
   // If we have 50 MHz and want <= 4 MHz sck output, we need 12.5x, 
-  // call it 16 since we prefer an multiple of 4 value so we can halve or quarter it
+  // call it 16 since we prefer an multiple of 4 value so we can halve or quarter it.
   parameter CLK_DIV = 16,
   parameter DIV_SZ = $clog2(CLK_DIV),
   parameter CLK_2us = 100, // 2µs at current clock rate (50MHz = 20ns => 100)
@@ -69,11 +68,78 @@ module spi_controller_ht16d35a #(
   // Controller interface
   output logic busy,
   input  logic activate,
-  input  logic [NUM_SELECTS-1:0] in_cs,
+  input  logic [NUM_SELECTS-1:0] in_cs, // Active high for which chip(s) you want enabled
   input  logic [7:0] out_data [OUT_BYTES],
   input  logic [OUT_BYTES_SZ-1:0] out_count
 );
 
+
+// Our half-bit times are half the CLK_DIV
+localparam CLK_HALF_BIT = $ceil(CLK_DIV / 2);
+localparam HALF_BIT_SZ = $clog2(CLK_BIT);
+
+typedef enum int unsigned {
+  S_IDLE              = 0,
+  S_START_SENDING     = 1
+} state_t;
+
+state_t state = S_IDLE;
+
+logic [HALF_BIT_SZ-1:0] half_bit_counter = (HALF_BIT_SZ)'(CLK_HALF_BIT);
+
+// Saved data from activation
+logic  [NUM_SELECTS-1:0] r_in_cs; // Active high for which chip(s) you want enabled
+logic              [7:0] r_out_data [OUT_BYTES];
+logic [OUT_BYTES_SZ-1:0] r_out_count;
+
+
+
+always_ff @(posedge clk) begin: main_spi_controller
+
+  if (half_bit_counter != 0) begin: wait_half_bit_time
+    // Don't do the main state machine except every half bit time
+    half_bit_counter <= half_bit_counter - 1'd1;
+
+  end: wait_half_bit_time else begin: do_state_machine
+    // Restart our half-bit counter
+    half_bit_counter <= (HALF_BIT_SZ)'(CLK_HALF_BIT);
+
+    case (state)
+
+    S_IDLE: begin: s_idle
+
+      cs <= '1; // no chips selected (active low)
+      sck <= '1; // clock idles high
+      busy <= '0;
+
+      if (activate) begin: activation
+        r_in_cs <= in_cs;
+        r_out_data <= out_data;
+        r_out_count <= out_count;
+
+        // Enable the necessary chips for the very first thing we do
+        cs <= ~in_cs;
+        // Keep the clock high for a cycle (per tCSL)
+        state <= S_START_SENDING;
+        busy <= '1;
+      end: activation
+
+    end: s_idle
+
+    endcase // state
+
+  end: do_state_machine
+
+  if (reset) begin: last_assignment_wins
+    // Do reset per http://fpgacpu.ca/fpga/verilog.html#resets
+    half_bit_counter <= (HALF_BIT_SZ)'(CLK_HALF_BIT);
+    cs <= '1; // no chips selected (active low)
+    sck <= '1; // clock idles high
+    busy <= '1; // Busy while in reset
+    state <= S_IDLE;
+  end: last_assignment_wins
+
+end: main_spi_controller
 
 endmodule
 

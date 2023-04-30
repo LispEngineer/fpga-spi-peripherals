@@ -5,6 +5,7 @@ Copyright ⓒ 2023 Douglas P. Fields, Jr. All Rights Reserved.
 Unicorn Hat Mini References:
 * [Pimoroni product page](https://shop.pimoroni.com/en-us/products/unicorn-hat-mini)
 * [Chipset](https://www.holtek.com/productdetail/-/vg/ht16d35a_b) - Holtek HT16D35A x2
+  * Datasheet version 1.22 dated November 15, 2021 is used for this analysis
 * [Pinout](https://pinout.xyz/pinout/unicorn_hat_mini#)
 * [Python](https://github.com/pimoroni/unicornhatmini-python)
 * [Tutorial](https://learn.pimoroni.com/tutorial/hel/getting-started-with-unicorn-hat-mini)
@@ -32,6 +33,10 @@ Unicorn Hat Mini Pinout:
 
 Notes:
 * Can run at SPI at [6 MHz](https://github.com/pimoroni/unicornhatmini-python/blob/master/library/unicornhatmini/__init__.py) at least (500 FPS)
+  * Spec sheet says limiting clock to 250ns or 4MHz
+* Run in binary mode or gray mode (6-bit)
+* This runs a modified SPI, with 3-wires (clock, chip select, and data in/out),
+  so the SPI controller may not be easily reusable to other chips
 
 Initialization Sequence ([from here](https://github.com/pimoroni/unicornhatmini-python/blob/master/library/unicornhatmini/__init__.py)):
 * Soft reset
@@ -58,3 +63,40 @@ Shutdown Sequence:
   * 0x42 0x00 0x00 0x00 0x00 
 * System control
   * 0x35 0x00
+
+## Notes from Datasheet
+
+See Holtek HT16D35A Datasheet Rev 1.22
+
+* Page 5:
+  * 10ms after power on reset to use the device
+  * See page 8
+* Page 5:
+  * Clock cycle time 250ns minimum = 4MHz tCLK
+  * Clock pulse width miniumum = 100ns tCW
+  * Data setup/hold time = 50ns tDS/tDH
+    * Input data must be stable for this long before rising clock edge
+    * Starting at 10% and 90% of the voltage rise (so use fast transition times?)
+  * CSB to clock time: 50ns (when starting transaction?) tCSL
+    * Time after CSB goes low until the CLK can first go high
+  * Clock to CSB time: 2µs (when ending transaction?) tCSH
+    * Time after clock goes high (and stays high for idle) and the CSB can go high
+  * "H" CBS Pulse Width: 100ns tCSW
+    * Minimum time CSB can remain high after going high
+  * (Omitting any data output discussion)
+* Page 6: Timing diagram on the above timings
+* Page 8: Data transfers on the I2C-bus or SPI 3-wire serial bus
+  should be avoided for 1ms following a power-on to
+  allow the reset initialisation operation to complete
+* Page 19-20: Command table
+* Page 60 for Initialization
+* Page 61 for Writing Display
+
+# Implementation Notes
+
+* I plan to try a two-cycle implementation where I output the clock in two parts
+  as opposed to the four parts I used in my earlier I²C implementation.
+
+# Open questions
+
+* Are the two HT16D35A chips wired in sync mode? (page 3, SYNC pin)
