@@ -100,3 +100,63 @@ See Holtek HT16D35A Datasheet Rev 1.22
 # Open questions
 
 * Are the two HT16D35A chips wired in sync mode? (page 3, SYNC pin)
+
+--------------------------------------------------------------------------------------------------------
+
+# TM1638 Button/Display for FPGA
+
+Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
+
+# TM1638 References
+
+Datasheet:
+* [TM1638 English Translation](https://github.com/maxint-rd/TM16xx/blob/master/documents/LED%20driver%20TM1638en.pdf) - unknown version, marked updated 2011-04-09 on page 18
+* [TM1638 English v1.3](https://futuranet.it/futurashop/image/catalog/data/Download/TM1638_V1.3_EN.pdf)
+
+Implementations for FPGA:
+* [GitHub 1](https://github.com/alangarf/tm1638-verilog)
+* [GitHub 2](https://github.com/mangakoji/TM1638_LED_KEY_DRV)
+
+Implementations for other platforms:
+* [GitHub Arduino](https://github.com/codebeat-nl/xtm1638)
+* [GitHub Arduino 2](https://github.com/maxint-rd/TM16xx) with translated data sheets for various TM16xx chips including the TM1638
+
+# Implementation notes
+
+* This seems to use the same protocol as my Unicorn Hat Mini implementation
+  (which was a write-only implementation of the protocol), with a few changes
+  as noted on the 1.3 data sheet page 17
+  * Clock minimum 400ns (i.e. 2.5 MHz)
+  * 1µs between interactions (between active-low selects) - vs 2
+  * 1µs between last transfer clock high and deasserting STB - vs 2
+  * `DIO` transfers data LSB first (!!!!!)
+* The same things:
+  * `DIO` reads data at the rising edge
+  * `DIO` writes data at the falling edge
+  * ... "Read serial data at rising edge and output data at falling edge."
+* Unusual differences:
+  * After sending a read command, you have to wait `Twait` (minimum 2µs) per p9,
+    but the timing diagram later shows 1µs (p 17).
+
+* Looks like it can operate at 3.3V or 5V (p15 of v1.3) or even lower.
+
+* It requires an external pull-up resistor - not sure if this is provided on the
+  `LED&KEY` board I have
+  * "When DIO outputs data, it is an NMOS open drain output. To read the keypad, 
+    an external pull-up resistor should be provided to connect 1K-10K. The Company recommends a
+    10K pull up resistor. At falling edge of the clock, DIO controls the operation of NMOS, at 
+    which point, the reading is unstable until rising edge of the clock." (v1.3 p2)
+
+* "TM1638 can be read up to four bytes only." (v1.3 p7)
+
+## Writing to LEDs
+
+See flowchart on p11 of v1.3 document:
+
+1. Set auto-increment (0x40)
+   * Table 5.1, 8'b01_00_0000 = Data command, write to display register, auto-increment, normal mode
+2. Set starting address (0xC0)
+   * Table 5.2, 8'b11_00_0000 = Display address 0x00
+3. Transmit data (all 16 bytes)
+4. Set brightness to maximum (0x8F)
+   * Table 5.3, 8'b10_00_1_111 = Display on, Pulse width 14/16 (maximum)

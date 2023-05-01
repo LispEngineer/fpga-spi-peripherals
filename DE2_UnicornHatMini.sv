@@ -33,6 +33,45 @@ module DE2_UnicornHatMini (
 	inout        [35:0] GPIO
 );
 
+
+////////////////////////////////////////////////////////////////////////////////
+// 7 Segment logic
+
+logic [6:0] ihex0 = '0;
+logic [6:0] ihex1 = '0;
+logic [6:0] ihex2 = '0;
+logic [6:0] ihex3 = '0;
+logic [6:0] ihex4 = '0;
+logic [6:0] ihex5 = '0;
+logic [6:0] ihex6 = '0;
+logic [6:0] ihex7 = '0;
+
+logic [31:0] hex_display;
+
+assign HEX0 = ~ihex0;
+assign HEX1 = ~ihex1;
+assign HEX2 = ~ihex2;
+assign HEX3 = ~ihex3;
+assign HEX4 = ~ihex4;
+assign HEX5 = ~ihex5;
+assign HEX6 = ~ihex6;
+assign HEX7 = ~ihex7;
+
+// Show the saved data on hex 0-3
+seven_segment sshex0 (.num(hex_display[3:0]),   .hex(ihex0));
+seven_segment sshex1 (.num(hex_display[7:4]),   .hex(ihex1));
+seven_segment sshex2 (.num(hex_display[11:8]),  .hex(ihex2));
+seven_segment sshex3 (.num(hex_display[15:12]), .hex(ihex3));
+seven_segment sshex4 (.num(hex_display[19:16]), .hex(ihex4));
+seven_segment sshex5 (.num(hex_display[23:20]), .hex(ihex5));
+seven_segment sshex6 (.num(hex_display[27:24]), .hex(ihex6));
+seven_segment sshex7 (.num(hex_display[31:28]), .hex(ihex7));
+
+
+
+/////////////////////////////////////////////////////////////////////////////////
+
+
 /* 
 See Holtek HT16D35A Datasheet Rev 1.22:
 * Page 60 for Initialization
@@ -61,6 +100,197 @@ See Holtek HT16D35A Datasheet Rev 1.22:
 
 Questions:
 */
+
+///////////////////////////////////////////////////////////////////////////////
+// LED & KEY (TM1638)
+
+/*
+See Titan Micro Electronics TM1638 Datasheet v1.3:
+*/
+
+
+
+// How many bytes we want to output at a time
+parameter OUT_BYTES = 5;
+parameter OUT_BYTES_SZ = $clog2(OUT_BYTES + 1);
+
+logic reset;
+assign reset = ~KEY[3];
+
+logic sck; // Serial Clock
+logic dio; // data in/out (we use it only for out FOR NOW)
+logic cs;  // Chip select (previously SS) - active low
+
+logic busy;
+logic activate;
+logic in_cs; // Active high for which chip(s) you want enabled
+logic [7:0] out_data [OUT_BYTES];
+logic [OUT_BYTES_SZ-1:0] out_count;
+
+logic [7:0] next_out_data [OUT_BYTES];
+logic [OUT_BYTES_SZ-1:0] next_out_count;
+
+
+// Assign our physical interface to TM1638 chip
+assign GPIO[25] = cs;
+assign GPIO[23] = sck;
+assign GPIO[21] = dio; // In the future this needs an ALTIOBUF for I/O
+
+assign LEDG[8] = busy;
+assign LEDG[7] = activate;
+assign LEDG[2:0] = {dio, sck, cs};
+
+spi_controller_ht16d35a #(
+  .NUM_SELECTS(1),
+  .CLK_DIV(30), // 20ns/50MHz system clock -> 400ns/2.5MHz TM1638 clock
+  .OUT_BYTES(OUT_BYTES),
+  .ALL_DONE_DELAY(1),
+  .LSB_FIRST(1)
+) ledNkey_inst (
+  .clk(CLOCK_50),
+  .reset,
+
+  // SPI interface
+  .sck, // Serial Clock
+  .dio, // data in/out (we use it only for out FOR NOW)
+  .cs,  // Chip select (previously SS) - active low
+
+  // Controller interface
+  .busy,
+  .activate,
+  .in_cs, // Active high for which chip(s) you want enabled
+  .out_data,
+  .out_count
+);
+
+localparam POWER_UP_START = 32'd50_000_000;
+logic [31:0] power_up_counter = POWER_UP_START;
+
+typedef enum int unsigned {
+  S_POWER_UP        = 0,
+  S_IDLE            = 1,
+  S_SEND_COMMAND    = 2,
+  S_AWAIT_COMMAND   = 3,
+  // TODO: Make a memory to do initialization
+  S_AUTO_INCREMENT  = 4,
+  S_XMIT_4          = 5,
+  S_MAX_BRIGHT      = 6
+} state_t;
+
+state_t lk_state = S_POWER_UP;
+state_t return_after_command;
+logic send_busy_seen;
+logic [2:0] xmit_4_count;
+
+assign hex_display[7:0] = lk_state;
+
+// debug
+logic [7:0] states_seen = 0;
+
+assign LEDR[7:0] = states_seen;
+
+always_ff @(posedge CLOCK_50) begin: tm1638_main
+  // NOTE: Reset logic at end
+
+  if (!reset) states_seen[lk_state] <= '1;
+
+  case (lk_state)
+
+  S_POWER_UP: begin: pwr_up
+    // Give the module a moment to power up
+    // The datasheet may say a required startup time but I didn't quickly find it
+    if (power_up_counter == 0)
+      lk_state <= S_AUTO_INCREMENT;
+    else
+      power_up_counter <= power_up_counter - 1'd1;
+  end: pwr_up
+
+  // FIXME: I should make this send/await command into a standard module
+  // that can be used for any of my interfaces. See: ScrollHatMini.
+  // Maybe make it a "task"?
+
+  S_IDLE: begin: do_idle
+  end: do_idle
+
+  S_AUTO_INCREMENT: begin: auto_incr
+    next_out_data[0] <= 8'h40; // see README
+    next_out_count <= 1'd1;
+    lk_state <= S_SEND_COMMAND;
+    return_after_command <= S_XMIT_4;
+    xmit_4_count <= 0;
+  end: auto_incr
+
+  S_XMIT_4: begin: xmit_4
+    next_out_data[0] <= 8'hC0 + ((8)'(xmit_4_count) << 2); // see README - ADDRESS SETTING
+    next_out_data[1] <= 8'b1010_1010;
+    next_out_data[2] <= 8'b1010_1010;
+    next_out_data[3] <= 8'b1010_1010;
+    next_out_data[4] <= 8'b1010_1010;
+    // next_out_data[1] <= 8'hFF;
+    // next_out_data[2] <= 8'hFF;
+    // next_out_data[3] <= 8'hFF;
+    // next_out_data[4] <= 8'hFF;
+    next_out_count <= 3'd5;
+    lk_state <= S_SEND_COMMAND;
+
+    if (xmit_4_count == 3) begin
+      return_after_command <= S_MAX_BRIGHT;
+    end else begin
+      return_after_command <= S_XMIT_4;
+      xmit_4_count <= xmit_4_count + 1'd1;
+    end
+  end: xmit_4
+
+  S_MAX_BRIGHT: begin: max_brt
+    next_out_data[0] <= 8'h8F; // see README
+    next_out_count <= 1'd1;
+    lk_state <= S_SEND_COMMAND;
+    return_after_command <= S_IDLE;
+  end: max_brt
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // Send subroutine
+
+  S_SEND_COMMAND: begin: send_command
+    // Send a specific I2C command, and return to the specified state
+    // after it is done.
+    if (busy) begin
+      // Wait for un-busy
+      activate <= '0;
+    end else begin
+      out_data    <= next_out_data;
+      out_count   <= next_out_count;
+      in_cs       <= '1; // Only one chip
+      activate    <= '1;
+      lk_state       <= S_AWAIT_COMMAND;
+      send_busy_seen <= '0;
+    end
+  end: send_command
+
+  S_AWAIT_COMMAND: begin: await_command
+    // Wait for busy to go true, then go false
+    case ({send_busy_seen, busy})
+    2'b01: begin: busy_starting
+      // We are seeing busy for the first time
+      send_busy_seen <= '1;
+      activate <= '0;
+    end: busy_starting
+    2'b10: begin: busy_ending
+      // Busy is now ending
+      lk_state <= return_after_command;
+    end: busy_ending
+    endcase
+  end: await_command
+
+  endcase // lk_state_case
+
+  if (reset) begin: do_reset
+    power_up_counter <= POWER_UP_START;
+    lk_state <= S_POWER_UP;
+    states_seen <= '0;
+  end: do_reset
+
+end: tm1638_main
 
 endmodule
 

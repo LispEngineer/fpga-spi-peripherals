@@ -35,6 +35,11 @@ drive the DIO pin for data output, sort of like I²C.
 FIXME: Power up reset has to wait either 1 or 10ms - have that done
 outside this module?
 
+-----------------
+
+Note: The TM1638 chip uses the same protocol with slightly different
+timings.
+
 */
 
 
@@ -58,7 +63,13 @@ module spi_controller_ht16d35a #(
 
   // How many bytes do you want to be able to write at a time?
   parameter OUT_BYTES = 8,
-  parameter OUT_BYTES_SZ = $clog2(OUT_BYTES + 1)
+  parameter OUT_BYTES_SZ = $clog2(OUT_BYTES + 1),
+
+  // Do we need to wait after releasing CS (to high, since it is active low)?
+  parameter ALL_DONE_DELAY = 0,
+
+  // We default to MSB first
+  parameter LSB_FIRST = 0
 ) (
   input logic clk,
   input logic reset,
@@ -67,7 +78,6 @@ module spi_controller_ht16d35a #(
   output logic sck, // Serial Clock
   output logic dio, // data in/out (we use it only for out FOR NOW)
   output logic [NUM_SELECTS-1:0] cs,  // Chip select (previously SS) - active low
-  // FUTURE: input logic sdi // Serial data in (previously MISO)
 
   // Controller interface
   output logic busy,
@@ -85,8 +95,9 @@ localparam HALF_BIT_START = (HALF_BIT_SZ)'(CLK_HALF_BIT);
 
 typedef enum int unsigned {
   S_IDLE              = 0,
-  S_SEND_BITS     = 1,
-  S_INTER_BYTE        = 2
+  S_SEND_BITS         = 1,
+  S_INTER_BYTE        = 2,
+  S_ALL_DONE          = 3
 } state_t;
 
 state_t state = S_IDLE;
@@ -155,7 +166,7 @@ always_ff @(posedge clk) begin: main_spi_controller
       if (sck) begin
         // Clock is currently high, will transition low.
         // So, send our output bit for reading when it transitions high again
-        dio <= r_out_data[current_byte][current_bit];
+          dio <= r_out_data[current_byte][LSB_FIRST ? 3'd7 - current_bit : current_bit];
 
       end else begin
         // Clock is currently low, when it shifts high
@@ -194,12 +205,28 @@ always_ff @(posedge clk) begin: main_spi_controller
           // See pages 5-6.
           cs <= '1;
           busy <= '0;
-          state <= S_IDLE;
+          if (ALL_DONE_DELAY != '0) begin
+            // Need a post-CS deassert delay
+            state <= S_ALL_DONE;
+            inter_byte_delay <= IB_DELAY_START;
+          end else begin
+            state <= S_IDLE;
+          end
         end
       end
       // We don't care if this underflows
       inter_byte_delay <= inter_byte_delay - 1'd1;
     end: inter_byte
+
+    S_ALL_DONE: begin: all_done
+      // Some implementations have a long inter-packet delay after CS high
+
+      if (inter_byte_delay == 0) begin
+        state <= S_IDLE;
+      end
+      // We don't care if this underflows
+      inter_byte_delay <= inter_byte_delay - 1'd1;
+    end: all_done
 
     endcase // state
 

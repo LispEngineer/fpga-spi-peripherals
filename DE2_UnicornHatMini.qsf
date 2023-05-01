@@ -342,10 +342,6 @@ set_global_assignment -name SAVE_DISK_SPACE OFF
 set_global_assignment -name TIMING_ANALYZER_MULTICORNER_ANALYSIS ON
 set_global_assignment -name SMART_RECOMPILE ON
 set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
-set_global_assignment -name SYSTEMVERILOG_FILE test_spi.sv
-set_global_assignment -name SYSTEMVERILOG_FILE spi_controller_ht16d35a.sv
-set_global_assignment -name SYSTEMVERILOG_FILE DE2_UnicornHatMini.sv
-set_global_assignment -name SDC_FILE DE2_UnicornHatMini.SDC
 set_global_assignment -name VERILOG_INPUT_VERSION SYSTEMVERILOG_2005
 set_global_assignment -name VERILOG_MACRO "IS_QUARTUS=true"
 set_global_assignment -name EDA_SIMULATION_TOOL "Questa Intel FPGA (Verilog)"
@@ -362,4 +358,9 @@ set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id test_spi
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_spi -section_id test_spi
 set_global_assignment -name EDA_TEST_BENCH_FILE spi_controller_ht16d35a.sv -section_id test_spi -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE test_spi.sv -section_id test_spi -hdl_version SystemVerilog_2005
+set_global_assignment -name SYSTEMVERILOG_FILE seven_segment.sv
+set_global_assignment -name SYSTEMVERILOG_FILE test_spi.sv
+set_global_assignment -name SYSTEMVERILOG_FILE spi_controller_ht16d35a.sv
+set_global_assignment -name SYSTEMVERILOG_FILE DE2_UnicornHatMini.sv
+set_global_assignment -name SDC_FILE DE2_UnicornHatMini.SDC
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
