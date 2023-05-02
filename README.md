@@ -139,6 +139,8 @@ Implementations for other platforms:
     but the timing diagram later shows 1µs (p 17).
 
 * Looks like it can operate at 3.3V or 5V (p15 of v1.3) or even lower.
+  * Confirmed that this works with Vcc of 5V and 3V3 from DE2-115 GPIO source.
+    It is a little less bright on 3V3 but it's totally fine.
 
 * It requires an external pull-up resistor - not sure if this is provided on the
   `LED&KEY` board I have

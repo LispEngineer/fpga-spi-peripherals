@@ -130,6 +130,24 @@ logic [OUT_BYTES_SZ-1:0] out_count;
 logic [7:0] next_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] next_out_count;
 
+localparam NUM_LED_BYTES = 16;
+logic [7:0] lk_leds [NUM_LED_BYTES];
+logic [7:0] rotated_lk_leds [NUM_LED_BYTES];
+
+initial begin
+  for (int i = 0; i < NUM_LED_BYTES; i += 2) begin
+    lk_leds[i] = '1; // Start with 1 bit set
+    lk_leds[i + 1] = '0;
+  end
+end
+
+// Pre-calculate our rotated LEDs
+always_comb begin
+  rotated_lk_leds[0] = {lk_leds[0][6:0], lk_leds[NUM_LED_BYTES - 1][7]};
+  for (int i = 1; i < NUM_LED_BYTES; i++)
+    rotated_lk_leds[i] = {lk_leds[i][6:0], lk_leds[i - 1][7]};
+end
+
 
 // Assign our physical interface to TM1638 chip
 assign GPIO[25] = cs;
@@ -142,7 +160,7 @@ assign LEDG[2:0] = {dio, sck, cs};
 
 spi_controller_ht16d35a #(
   .NUM_SELECTS(1),
-  .CLK_DIV(30), // 20ns/50MHz system clock -> 400ns/2.5MHz TM1638 clock
+  .CLK_DIV(20), // 20ns/50MHz system clock -> 400ns/2.5MHz TM1638 clock
   .OUT_BYTES(OUT_BYTES),
   .ALL_DONE_DELAY(1),
   .LSB_FIRST(1)
@@ -164,6 +182,7 @@ spi_controller_ht16d35a #(
 );
 
 localparam POWER_UP_START = 32'd50_000_000;
+localparam DELAY_START = 32'd10_000_000;
 logic [31:0] power_up_counter = POWER_UP_START;
 
 typedef enum int unsigned {
@@ -174,7 +193,9 @@ typedef enum int unsigned {
   // TODO: Make a memory to do initialization
   S_AUTO_INCREMENT  = 4,
   S_XMIT_4          = 5,
-  S_MAX_BRIGHT      = 6
+  S_MAX_BRIGHT      = 6,
+  S_ROTATE          = 7,
+  S_DELAY           = 8
 } state_t;
 
 state_t lk_state = S_POWER_UP;
@@ -185,9 +206,9 @@ logic [2:0] xmit_4_count;
 assign hex_display[7:0] = lk_state;
 
 // debug
-logic [7:0] states_seen = 0;
+logic [17:0] states_seen = 0;
 
-assign LEDR[7:0] = states_seen;
+assign LEDR = states_seen;
 
 always_ff @(posedge CLOCK_50) begin: tm1638_main
   // NOTE: Reset logic at end
@@ -222,14 +243,10 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
 
   S_XMIT_4: begin: xmit_4
     next_out_data[0] <= 8'hC0 + ((8)'(xmit_4_count) << 2); // see README - ADDRESS SETTING
-    next_out_data[1] <= 8'b1010_1010;
-    next_out_data[2] <= 8'b1010_1010;
-    next_out_data[3] <= 8'b1010_1010;
-    next_out_data[4] <= 8'b1010_1010;
-    // next_out_data[1] <= 8'hFF;
-    // next_out_data[2] <= 8'hFF;
-    // next_out_data[3] <= 8'hFF;
-    // next_out_data[4] <= 8'hFF;
+    next_out_data[1] <= lk_leds[(4'd1 << xmit_4_count)];
+    next_out_data[2] <= lk_leds[(4'd1 << xmit_4_count) + 1];
+    next_out_data[3] <= lk_leds[(4'd1 << xmit_4_count) + 2];
+    next_out_data[4] <= lk_leds[(4'd1 << xmit_4_count) + 3];
     next_out_count <= 3'd5;
     lk_state <= S_SEND_COMMAND;
 
@@ -245,8 +262,18 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
     next_out_data[0] <= 8'h8F; // see README
     next_out_count <= 1'd1;
     lk_state <= S_SEND_COMMAND;
-    return_after_command <= S_IDLE;
+    // return_after_command <= S_ROTATE;
+    return_after_command <= S_ROTATE;
   end: max_brt
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // Shifting LED pattern
+
+  S_ROTATE: begin: do_rotate
+    lk_state <= S_POWER_UP;
+    lk_leds <= rotated_lk_leds;
+    power_up_counter <= DELAY_START;
+  end: do_rotate
 
   ////////////////////////////////////////////////////////////////////////////////
   // Send subroutine
