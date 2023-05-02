@@ -162,3 +162,12 @@ See flowchart on p11 of v1.3 document:
 3. Transmit data (all 16 bytes)
 4. Set brightness to maximum (0x8F)
    * Table 5.3, 8'b10_00_1_111 = Display on, Pulse width 14/16 (maximum)
+
+## LED Memory Mapping
+
+7-segment displays:
+* Every even byte, bits 6:0, map in the usual 7-segment way
+* Bit 7 is the decimal pint
+
+8 big LEDs:
+* Every odd byte, bit 0, is the LED

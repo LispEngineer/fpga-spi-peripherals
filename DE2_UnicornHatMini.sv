@@ -152,6 +152,33 @@ always_comb begin
     rotated_lk_leds[i] = {lk_leds[i][6:0], lk_leds[i - 1][7]};
 end
 
+//////////////////////////////////////
+// LED & KEY TM1618 memory mapping
+
+logic [6:0] lk_hexes [8];
+logic [7:0] lk_decimals;
+logic [7:0] lk_big; // The big LEDs on top
+logic [7:0] lk_memory [NUM_LED_BYTES];
+
+// Handle the LED & KEY memory layout from the raw data above
+always_comb begin
+  for (int i = 0; i < 8; i++) begin: for1
+    lk_memory[i * 2][6:0] = lk_hexes[i];
+    lk_memory[i * 2][7] = lk_decimals[i];
+    lk_memory[i * 2 + 1][0] = lk_big[i];
+  end: for1
+end
+
+initial begin
+  for (int i = 0; i < 7; i++)
+    lk_hexes[i] = 7'b1 << i;
+  lk_hexes[7] = 1;
+  lk_decimals = 8'b1;
+  lk_big = 8'h80;
+end
+
+// END LED & KEY TM1618 memory mapping
+//////////////////////////////////////
 
 // Assign our physical interface to TM1638 chip
 assign GPIO[25] = cs;
@@ -186,7 +213,7 @@ spi_controller_ht16d35a #(
 );
 
 localparam POWER_UP_START = 32'd50_000_000;
-localparam DELAY_START = 32'd5_000_000;
+localparam DELAY_START = 32'd20_000_000;
 logic [31:0] power_up_counter = POWER_UP_START;
 
 typedef enum int unsigned {
@@ -207,12 +234,15 @@ state_t return_after_command;
 logic send_busy_seen;
 logic [2:0] xmit_4_count;
 
-assign hex_display[7:0] = lk_state;
+assign hex_display[7:0] = (8)'(lk_state);
 
 // debug
 logic [17:0] states_seen = 0;
 
 assign LEDR = states_seen;
+
+////////////////////////////////////////////////////////////////////////////
+// Main TM1638 state machine
 
 always_ff @(posedge CLOCK_50) begin: tm1638_main
   // NOTE: Reset logic at end
@@ -247,10 +277,10 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
 
   S_XMIT_4: begin: xmit_4
     next_out_data[0] <= 8'hC0 + ((8)'(xmit_4_count) << 2); // see README - ADDRESS SETTING
-    next_out_data[1] <= lk_leds[((4)'(xmit_4_count) << 2) + 0];
-    next_out_data[2] <= lk_leds[((4)'(xmit_4_count) << 2) + 1];
-    next_out_data[3] <= lk_leds[((4)'(xmit_4_count) << 2) + 2];
-    next_out_data[4] <= lk_leds[((4)'(xmit_4_count) << 2) + 3];
+    next_out_data[1] <= lk_memory[((4)'(xmit_4_count) << 2) + 0];
+    next_out_data[2] <= lk_memory[((4)'(xmit_4_count) << 2) + 1];
+    next_out_data[3] <= lk_memory[((4)'(xmit_4_count) << 2) + 2];
+    next_out_data[4] <= lk_memory[((4)'(xmit_4_count) << 2) + 3];
     next_out_count <= 3'd5;
     lk_state <= S_SEND_COMMAND;
 
@@ -275,8 +305,15 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
 
   S_ROTATE: begin: do_rotate
     lk_state <= S_POWER_UP;
-    lk_leds <= rotated_lk_leds;
     power_up_counter <= DELAY_START;
+
+    // Do our rotation logic
+    lk_leds <= rotated_lk_leds;
+
+    for (int i = 0; i < 8; i++)
+      lk_hexes[i] = {lk_hexes[i][5:0], lk_hexes[i][6]};
+    lk_big = {lk_big[6:0], lk_big[7]};
+    lk_decimals = {lk_decimals[0], lk_decimals[7:1]};
   end: do_rotate
 
   ////////////////////////////////////////////////////////////////////////////////
