@@ -135,10 +135,14 @@ logic [7:0] lk_leds [NUM_LED_BYTES];
 logic [7:0] rotated_lk_leds [NUM_LED_BYTES];
 
 initial begin
+  /*
   for (int i = 0; i < NUM_LED_BYTES; i += 2) begin
     lk_leds[i] = '1; // Start with 1 bit set
     lk_leds[i + 1] = '0;
   end
+  */
+  for (int i = 0; i < NUM_LED_BYTES; i++) lk_leds[i] = '0;
+  lk_leds[0][0] = '1;
 end
 
 // Pre-calculate our rotated LEDs
@@ -182,7 +186,7 @@ spi_controller_ht16d35a #(
 );
 
 localparam POWER_UP_START = 32'd50_000_000;
-localparam DELAY_START = 32'd10_000_000;
+localparam DELAY_START = 32'd5_000_000;
 logic [31:0] power_up_counter = POWER_UP_START;
 
 typedef enum int unsigned {
@@ -243,10 +247,10 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
 
   S_XMIT_4: begin: xmit_4
     next_out_data[0] <= 8'hC0 + ((8)'(xmit_4_count) << 2); // see README - ADDRESS SETTING
-    next_out_data[1] <= lk_leds[(4'd1 << xmit_4_count)];
-    next_out_data[2] <= lk_leds[(4'd1 << xmit_4_count) + 1];
-    next_out_data[3] <= lk_leds[(4'd1 << xmit_4_count) + 2];
-    next_out_data[4] <= lk_leds[(4'd1 << xmit_4_count) + 3];
+    next_out_data[1] <= lk_leds[((4)'(xmit_4_count) << 2) + 0];
+    next_out_data[2] <= lk_leds[((4)'(xmit_4_count) << 2) + 1];
+    next_out_data[3] <= lk_leds[((4)'(xmit_4_count) << 2) + 2];
+    next_out_data[4] <= lk_leds[((4)'(xmit_4_count) << 2) + 3];
     next_out_count <= 3'd5;
     lk_state <= S_SEND_COMMAND;
 
