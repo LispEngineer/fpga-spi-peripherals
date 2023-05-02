@@ -94,8 +94,14 @@ See Holtek HT16D35A Datasheet Rev 1.22
 
 # Implementation Notes
 
-* I plan to try a two-cycle implementation where I output the clock in two parts
+* It is a two-cycle implementation where I output the clock in two parts
   as opposed to the four parts I used in my earlier I²C implementation.
+
+* The 3-wire SPI implementation is done and supports:
+  * MSB and LSB-first data transmission.
+  * Optional delay after releasing chip select.
+  * WRITE ONLY (for now)
+  * Parameter configured maximum write burst size.
 
 # Open questions
 
@@ -106,6 +112,19 @@ See Holtek HT16D35A Datasheet Rev 1.22
 # TM1638 Button/Display for FPGA
 
 Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
+
+# TODO
+
+* Implement the read side of the 3-wire SPI module
+  * Rename the module to 3-wire SPI or something not specific to HT16D35A
+* Create a generic TM1638 driver module that takes 16 bytes memory input
+  and 4 bytes memory output and constantly refreshes that automatically
+  * Include a pulse output for every time the input is sampled
+  * Synchronize the inputs if we care, or we can simply not care, as they
+    will be sampled very frequently and a little bit error won't matter much
+* Create a specific module that works with LED & KEY, takes the hex inputs and
+  the LED/decimal inputs, and outputs the 8 keys
+
 
 # TM1638 References
 
