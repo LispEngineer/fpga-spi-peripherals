@@ -178,6 +178,7 @@ Implementations for other platforms:
 * See the code for mappings:
   * Keys: they use K3 only, and all 8 KS#s (see p7)
   * LEDs: i: 0..7
+
         lk_memory[i * 2    ][6:0] = lk_hexes[i];
         lk_memory[i * 2    ][7]   = lk_decimals[i];
         lk_memory[i * 2 + 1][0]   = lk_big[i];
@@ -188,9 +189,20 @@ Implementations for other platforms:
     * `ALL_DONE_DELAY = 1`
     * `OUT_BYTES = 5`
   * Speed with various `DELAY_START` settings
+
         DELAY_START (decimal)     Iterations per second hex/decimal
             1_000                 1462   / 5_217
-           10_000
+           10_000                  898   / 2_200
+          100_000                  1CD   /   461
+          230_000                   D2   /   210
+          260_000                   BA   /   186
+          460_000                   6B   /   107
+
+  * However, the maximum useful refresh rate is once every 4.7ms or about
+    212 times a second, as that is how fast it internally refreshes its
+    display and key state (see data sheet v1.3, page 8).
+  * So recommended values for `DELAY_START` are `d230_000` or `d460_000`
+    for the maximum useful speed or about 100Hz respectively.
 
 
 ## Writing to LEDs

@@ -232,8 +232,13 @@ spi_controller_ht16d35a #(
   .in_count
 );
 
-localparam POWER_UP_START = 32'd10_000_000;
-localparam DELAY_START = 32'd0_001_000; // Make this run fast to get key outputs quickly
+// How long to wait before we start using the LED&KEY in clock cycles?
+localparam POWER_UP_START = 32'd2_000_000; // 2/50ths of a second or 40ms
+// DELAY_START of 460_000 causes the state machine to cycle about 107 times a second.
+// DELAY_START of 230_000 causes the state machine to cycle about 210 times a second.
+// The TM1638 only scans the keypad once every 4.7ms or about 212 times a second.
+// (v1.3 p8)
+localparam DELAY_START = 32'd0_230_000; 
 logic [31:0] power_up_counter = POWER_UP_START;
 
 typedef enum int unsigned {
