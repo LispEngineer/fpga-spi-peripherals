@@ -100,6 +100,7 @@ module spi_controller_ht16d35a #(
 localparam CLK_HALF_BIT = (CLK_DIV + 1) >> 1; // $ceil not working for QUESTA
 localparam HALF_BIT_SZ = $clog2(CLK_HALF_BIT) + 1; // This should be 4 but is coming out 3
 localparam HALF_BIT_START = (HALF_BIT_SZ)'(CLK_HALF_BIT);
+localparam MAX_BYTE_SZ = IN_BYTES_SZ > OUT_BYTES_SZ ? IN_BYTES_SZ : OUT_BYTES_SZ;
 
 typedef enum int unsigned {
   S_IDLE              = 0,
@@ -110,6 +111,7 @@ typedef enum int unsigned {
 } state_t;
 
 state_t state = S_IDLE;
+state_t inter_byte_return;
 
 logic [HALF_BIT_SZ-1:0] half_bit_counter = HALF_BIT_START;
 
@@ -119,14 +121,16 @@ logic              [7:0] r_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] r_out_count;
 logic  [IN_BYTES_SZ-1:0] r_in_count;
 
-logic [OUT_BYTES_SZ-1:0] current_byte;
-logic [2:0] current_bit; // We send MSB first
+logic [MAX_BYTE_SZ-1:0] current_byte;
+logic             [2:0] current_bit; // We send MSB first
+logic [MAX_BYTE_SZ-1:0] current_last_byte;
 
 // Calculate a 2µs delay
 localparam INTER_BYTE_DELAY = ((CLK_2us + CLK_DIV - 1) / CLK_DIV) * 2; // $ceil not working for Questa
 localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY + 1);
 localparam IB_DELAY_START = (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 3); // This -3 was found with simulation but still results in a 2,380µs clock peak
 logic [IB_DELAY_SZ-1:0] inter_byte_delay;
+
 
 always_ff @(posedge clk) begin: main_spi_controller
 
@@ -159,6 +163,7 @@ always_ff @(posedge clk) begin: main_spi_controller
         r_out_data <= out_data;
         r_out_count <= out_count;
         r_in_count <= in_count;
+        current_last_byte <= out_count - 1'd1;
 
         current_byte <= '0;
         current_bit <= 3'd7;
@@ -177,6 +182,7 @@ always_ff @(posedge clk) begin: main_spi_controller
       // Always enter this state with the sck high!!
 
       sck <= ~sck;
+      inter_byte_return <= S_SEND_BITS;
 
       if (sck) begin
         // Clock is currently high, will transition low.
@@ -199,6 +205,9 @@ always_ff @(posedge clk) begin: main_spi_controller
 
     end: start_sending
 
+
+
+
     S_INTER_BYTE: begin: inter_byte
       // During the inter byte, we hold the clock high and the chip select low
       // for a desired 2µs (page 51). If we have more bytes, we keep the CS low,
@@ -209,13 +218,14 @@ always_ff @(posedge clk) begin: main_spi_controller
 
       if (inter_byte_delay == 0) begin
         // Are we done sending
-        if (current_byte != r_out_count - 1'd1) begin
+        if (current_byte != current_last_byte) begin
           // We have more bytes to send.
-          state <= S_SEND_BITS;
+          state <= inter_byte_return;
           current_byte <= current_byte + 1'd1;
           current_bit <= 3'd7;
-        end else begin
-          // No more bytes. We have to hold CS high for tCSW
+        end else if ((inter_byte_return == S_SEND_BITS && r_in_count == 0) ||
+                      inter_byte_return == S_READ_BITS) begin
+          // No more bytes out OR in. We have to hold CS high for tCSW
           // (which is conveniently 2/5ths of a clock cycle time).
           // See pages 5-6.
           cs <= '1;
@@ -227,11 +237,52 @@ always_ff @(posedge clk) begin: main_spi_controller
             state <= S_IDLE;
             busy <= '0;
           end
+        end else if (inter_byte_return == S_SEND_BITS && r_in_count != 0) begin
+          // We're done sending bits, now we have to receive them
+          state <= S_READ_BITS;
+          current_last_byte <= r_in_count - 1'd1;
+          current_byte <= '0;
+          current_bit <= 3'd7;
+          dio_e <= '0; // We're reading so disable output so we can read from dio_i
         end
       end
       // We don't care if this underflows
       inter_byte_delay <= inter_byte_delay - 1'd1;
     end: inter_byte
+
+
+
+
+    S_READ_BITS: begin: start_receiving
+      // Always enter this state with the sck high!!
+
+      sck <= ~sck;
+      inter_byte_return <= S_READ_BITS;
+
+      if (sck) begin
+        // Clock is currently high, will transition low.
+        // So, send our output bit for reading when it transitions high again.
+        // The peripheral will send serial data at the falling edge of this clock,
+        // so do nothing for now
+
+      end else begin
+        // Clock is low, just transitioned from high, so read the data
+        in_data[current_byte][LSB_FIRST ? 3'd7 - current_bit : current_bit] <= dio_i;
+
+        if (current_bit == 0) begin: last_bit
+          // We got our last bit. We need to delay
+          // before our next bit or releasing CS.
+          state <= S_INTER_BYTE;
+          inter_byte_delay <= IB_DELAY_START;
+        end: last_bit else begin: more_bits
+          current_bit <= current_bit - 1'd1;
+        end: more_bits
+      end // half bit
+
+    end: start_receiving
+
+
+
 
     S_ALL_DONE: begin: all_done
       // Some implementations have a long inter-packet delay after CS high
