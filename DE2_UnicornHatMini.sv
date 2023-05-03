@@ -152,6 +152,7 @@ end
 logic [6:0] lk_hexes [8];
 logic [7:0] lk_decimals;
 logic [7:0] lk_big; // The big LEDs on top
+logic [7:0] lk_keys; // The keys on the LED&KEY - 1 is pressed
 // Raw TM1618 memory (16 bytes)
 logic [7:0] lk_memory [NUM_LED_BYTES];
 
@@ -162,6 +163,12 @@ always_comb begin
     lk_memory[i * 2][7] = lk_decimals[i];
     lk_memory[i * 2 + 1][0] = lk_big[i];
   end: for1
+  // Keys are mapped: 1-4 are the 0 bits of the 4 bytes
+  // 5-8 are the 4 bits of the 4 bytes
+  for (int i = 0; i < 4; i++) begin: for2
+    lk_keys[0 + i] = in_data[i][0];
+    lk_keys[4 + i] = in_data[i][4];
+  end: for2
 end
 
 `ifdef IS_QUARTUS
@@ -226,7 +233,7 @@ spi_controller_ht16d35a #(
 );
 
 localparam POWER_UP_START = 32'd50_000_000;
-localparam DELAY_START = 32'd20_000_000;
+localparam DELAY_START = 32'd1_000_000; // Make this run fast to get key outputs quickly
 logic [31:0] power_up_counter = POWER_UP_START;
 
 typedef enum int unsigned {
@@ -257,7 +264,8 @@ assign hex_display[ 7: 0] = in_data[0];
 // debug
 logic [17:0] states_seen = 0;
 
-assign LEDR = states_seen;
+assign LEDR[8:0] = states_seen;
+assign LEDR[17:10] = lk_keys;
 
 ////////////////////////////////////////////////////////////////////////////
 // Main TM1638 state machine

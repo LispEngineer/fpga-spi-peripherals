@@ -161,17 +161,27 @@ Implementations for other platforms:
   * Confirmed that this works with Vcc of 5V and 3V3 from DE2-115 GPIO source.
     It is a little less bright on 3V3 but it's totally fine.
 
-* It requires an external pull-up resistor - not sure if this is provided on the
-  `LED&KEY` board I have
+* It requires an external pull-up resistor
   * "When DIO outputs data, it is an NMOS open drain output. To read the keypad, 
     an external pull-up resistor should be provided to connect 1K-10K. The Company recommends a
     10K pull up resistor. At falling edge of the clock, DIO controls the operation of NMOS, at 
     which point, the reading is unstable until rising edge of the clock." (v1.3 p2)
+  * This pull-up resistor is NOT provided on the LED&KEY board.
+  * However, the built-in Weak Pull-Up seems to work fine:
+    `set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO[21]`
 
 * "TM1638 can be read up to four bytes only." (v1.3 p7)
 
 * The ALTIOBUF *cannot* be open-drain for the TM1638 in the LED&KEY
   * If set to open-drain in the FPGA, the TM1638 will miss bits on input.
+
+* See the code for mappings:
+  * Keys: they use K3 only, and all 8 KS#s (see p7)
+  * LEDs: i: 0..7
+        lk_memory[i * 2    ][6:0] = lk_hexes[i];
+        lk_memory[i * 2    ][7]   = lk_decimals[i];
+        lk_memory[i * 2 + 1][0]   = lk_big[i];
+
 
 
 

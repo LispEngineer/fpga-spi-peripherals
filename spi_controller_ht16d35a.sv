@@ -38,7 +38,15 @@ outside this module?
 -----------------
 
 Note: The TM1638 chip uses the same protocol with slightly different
-timings.
+timings. It also requires a weak pull-up resistor, recommended at 10kΩ.
+See TM1638 data sheet v1.3 page 2:
+
+When DIO outputs data, it is an NMOS open drain output. To read the keypad, an
+external pull-up resistor should be provided to connect 1K-10K. The Company recommends a
+10K pull up resistor. At falling edge of the clock, DIO controls the operation of NMOS, at which point, the
+reading is unstable until rising edge of the clock.
+
+The Cyclone IV built in weak pull-up seems sufficient for the job though.
 
 */
 
