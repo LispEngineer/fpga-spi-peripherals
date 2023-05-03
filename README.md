@@ -115,7 +115,7 @@ Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
 
 # TODO
 
-* Implement the read side of the 3-wire SPI module
+* [DONE] Implement the read side of the 3-wire SPI module
   * Rename the module to 3-wire SPI or something not specific to HT16D35A
 * Create a generic TM1638 driver module that takes 16 bytes memory input
   and 4 bytes memory output and constantly refreshes that automatically
@@ -124,6 +124,7 @@ Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
     will be sampled very frequently and a little bit error won't matter much
 * Create a specific module that works with LED & KEY, takes the hex inputs and
   the LED/decimal inputs, and outputs the 8 keys
+* Create a specific module that works with the QYF 8-segment & 16 key version
 
 
 # TM1638 References
@@ -135,10 +136,16 @@ Datasheet:
 Implementations for FPGA:
 * [GitHub 1](https://github.com/alangarf/tm1638-verilog)
 * [GitHub 2](https://github.com/mangakoji/TM1638_LED_KEY_DRV)
+* [GitHub 3](https://github.com/maxint-rd/TM16xx) - this has listings of all the TM16xx family
+  and data sheets for each one in English, very super useful
 
 Implementations for other platforms:
 * [GitHub Arduino](https://github.com/codebeat-nl/xtm1638)
 * [GitHub Arduino 2](https://github.com/maxint-rd/TM16xx) with translated data sheets for various TM16xx chips including the TM1638
+
+Amazon links:
+* [LED&KEY](https://www.amazon.com/dp/B0B7GMTMVB?psc=1&ref=ppx_yo2ov_dt_b_product_details)
+* [QYF-TM1638](https://www.amazon.com/dp/B0BXDL1LG1?psc=1&ref=ppx_yo2ov_dt_b_product_details) "Digital Tube Module"
 
 # Implementation notes
 
