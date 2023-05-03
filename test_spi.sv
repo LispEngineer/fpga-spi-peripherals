@@ -33,12 +33,19 @@ end
 
 localparam NUM_SELECTS = 2;
 localparam OUT_BYTES = 3;
-localparam OUT_BYTES_SZ = $clog2(OUT_BYTES);
+localparam OUT_BYTES_SZ = $clog2(OUT_BYTES + 1);
+localparam IN_BYTES = 4;
+localparam IN_BYTES_SZ = $clog2(IN_BYTES + 1);
 
 // 3-wire SPI interface
 logic sck;
 logic dio_o, dio_i, dio_e;
 logic [NUM_SELECTS-1:0] cs;
+
+// Make random data on dio_i
+always begin
+  #(CLOCK_DUR * 1.7737372771); dio_i <= ~dio_i;
+end
 
 // Controller interface
 logic busy;
@@ -46,6 +53,8 @@ logic activate;
 logic [NUM_SELECTS-1:0] in_cs;
 logic [7:0] out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] out_count;
+logic [7:0] in_data [IN_BYTES];
+logic [IN_BYTES_SZ-1:0] in_count;
 
 spi_controller_ht16d35a #(
   .NUM_SELECTS(NUM_SELECTS),
@@ -70,8 +79,8 @@ spi_controller_ht16d35a #(
   .in_cs, // Active high for which chip(s) you want enabled
   .out_data,
   .out_count,
-  .in_data(), // Not connected
-  .in_count('0)
+  .in_data,
+  .in_count
 );
 
 
@@ -79,6 +88,7 @@ spi_controller_ht16d35a #(
 initial begin
   $display("Starting Simulation @ ", $time);
   clk <= 1'b0;
+  dio_i <= '0;
   reset <= 1'b1; 
   #(RESET_DUR); 
   reset <= 1'b0;
@@ -90,6 +100,7 @@ initial begin
   out_data[1] <= 8'hDF;
   out_data[2] <= 8'b1010_0101;
   out_count <= OUT_BYTES;
+  in_count <= 3'd4;
   #(CLOCK_DUR * 128)
   activate <= '0;
 
