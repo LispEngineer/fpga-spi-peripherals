@@ -133,6 +133,7 @@ logic [7:0] in_data [IN_BYTES];
 
 logic [7:0] next_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] next_out_count;
+logic [IN_BYTES_SZ-1:0] next_in_count;
 
 localparam NUM_LED_BYTES = 16;
 
@@ -203,7 +204,8 @@ spi_controller_ht16d35a #(
   .CLK_DIV(20), // 20ns/50MHz system clock -> 400ns/2.5MHz TM1638 clock
   .OUT_BYTES(OUT_BYTES),
   .ALL_DONE_DELAY(1),
-  .LSB_FIRST(1)
+  .LSB_FIRST(1),
+  .IN_BYTES(IN_BYTES)
 ) ledNkey_inst (
   .clk(CLOCK_50),
   .reset,
@@ -220,7 +222,7 @@ spi_controller_ht16d35a #(
   .out_data,
   .out_count,
   .in_data,
-  .in_count('0) // FIXME
+  .in_count
 );
 
 localparam POWER_UP_START = 32'd50_000_000;
@@ -237,7 +239,8 @@ typedef enum int unsigned {
   S_XMIT_4          = 5,
   S_MAX_BRIGHT      = 6,
   S_ROTATE          = 7,
-  S_DELAY           = 8
+  S_READ_BYTES      = 8,
+  S_DELAY           = 9
 } state_t;
 
 state_t lk_state = S_POWER_UP;
@@ -245,7 +248,11 @@ state_t return_after_command;
 logic send_busy_seen;
 logic [2:0] xmit_4_count;
 
-assign hex_display[7:0] = (8)'(lk_state);
+// assign hex_display[7:0] = (8)'(lk_state);
+assign hex_display[31:24] = in_data[3];
+assign hex_display[23:16] = in_data[2];
+assign hex_display[15: 8] = in_data[1];
+assign hex_display[ 7: 0] = in_data[0];
 
 // debug
 logic [17:0] states_seen = 0;
@@ -281,6 +288,7 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
   S_AUTO_INCREMENT: begin: auto_incr
     next_out_data[0] <= 8'h40; // see README
     next_out_count <= 1'd1;
+    next_in_count <= '0;
     lk_state <= S_SEND_COMMAND;
     return_after_command <= S_XMIT_4;
     xmit_4_count <= 0;
@@ -293,6 +301,7 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
     next_out_data[3] <= lk_memory[((4)'(xmit_4_count) << 2) + 2];
     next_out_data[4] <= lk_memory[((4)'(xmit_4_count) << 2) + 3];
     next_out_count <= 3'd5;
+    next_in_count <= '0;
     lk_state <= S_SEND_COMMAND;
 
     if (xmit_4_count == 3) begin
@@ -306,10 +315,21 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
   S_MAX_BRIGHT: begin: max_brt
     next_out_data[0] <= 8'h8F; // see README
     next_out_count <= 1'd1;
+    next_in_count <= '0;
+    lk_state <= S_SEND_COMMAND;
+    // return_after_command <= S_ROTATE;
+    return_after_command <= S_READ_BYTES;
+  end: max_brt
+
+  S_READ_BYTES: begin: read_bytes
+    next_out_data[0] <= 8'b01_00_00_10; // see README: Read key scanning data
+    next_out_count <= 1'd1;
+    next_in_count <= (IN_BYTES_SZ)'(IN_BYTES); // Read all the bytes
     lk_state <= S_SEND_COMMAND;
     // return_after_command <= S_ROTATE;
     return_after_command <= S_ROTATE;
-  end: max_brt
+  end: read_bytes
+
 
   ////////////////////////////////////////////////////////////////////////////////
   // Shifting LED pattern
@@ -334,10 +354,11 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
       // Wait for un-busy
       activate <= '0;
     end else begin
-      out_data    <= next_out_data;
-      out_count   <= next_out_count;
-      in_cs       <= '1; // Only one chip
-      activate    <= '1;
+      out_data       <= next_out_data;
+      out_count      <= next_out_count;
+      in_count       <= next_in_count;
+      in_cs          <= '1; // Only one chip
+      activate       <= '1;
       lk_state       <= S_AWAIT_COMMAND;
       send_busy_seen <= '0;
     end
