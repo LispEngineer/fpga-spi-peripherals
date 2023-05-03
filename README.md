@@ -182,7 +182,15 @@ Implementations for other platforms:
         lk_memory[i * 2    ][7]   = lk_decimals[i];
         lk_memory[i * 2 + 1][0]   = lk_big[i];
 
-
+* This can refresh very, very fast.
+  * The refresh based these basic settings:
+    * `CLK_DIV = 20`
+    * `ALL_DONE_DELAY = 1`
+    * `OUT_BYTES = 5`
+  * Speed with various `DELAY_START` settings
+        DELAY_START (decimal)     Iterations per second hex/decimal
+            1_000                 1462   / 5_217
+           10_000
 
 
 ## Writing to LEDs

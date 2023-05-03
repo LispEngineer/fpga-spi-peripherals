@@ -232,8 +232,8 @@ spi_controller_ht16d35a #(
   .in_count
 );
 
-localparam POWER_UP_START = 32'd50_000_000;
-localparam DELAY_START = 32'd1_000_000; // Make this run fast to get key outputs quickly
+localparam POWER_UP_START = 32'd10_000_000;
+localparam DELAY_START = 32'd0_001_000; // Make this run fast to get key outputs quickly
 logic [31:0] power_up_counter = POWER_UP_START;
 
 typedef enum int unsigned {
@@ -256,16 +256,23 @@ logic send_busy_seen;
 logic [2:0] xmit_4_count;
 
 // assign hex_display[7:0] = (8)'(lk_state);
+/*
 assign hex_display[31:24] = in_data[3];
 assign hex_display[23:16] = in_data[2];
 assign hex_display[15: 8] = in_data[1];
 assign hex_display[ 7: 0] = in_data[0];
+*/
 
 // debug
 logic [17:0] states_seen = 0;
 
+logic [31:0] count_of_iterations = '0;
+logic [31:0] count_of_cycles = '0;
+logic [31:0] saved_iteration_count = '0;
+
 assign LEDR[8:0] = states_seen;
 assign LEDR[17:10] = lk_keys;
+assign hex_display = saved_iteration_count;
 
 ////////////////////////////////////////////////////////////////////////////
 // Main TM1638 state machine
@@ -274,6 +281,16 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
   // NOTE: Reset logic at end
 
   if (!reset) states_seen[lk_state] <= '1;
+
+  // See how fast we're processing things
+  if (count_of_cycles == 32'd50_000_000) begin
+    // One second has elapsed
+    saved_iteration_count <= count_of_iterations;
+    count_of_cycles <= '0;
+    count_of_iterations <= '0;
+  end else begin
+    count_of_cycles <= count_of_cycles + 1'd1;
+  end
 
   case (lk_state)
 
@@ -350,6 +367,9 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
       lk_hexes[i] = {lk_hexes[i][5:0], lk_hexes[i][6]};
     lk_big = {lk_big[6:0], lk_big[7]};
     lk_decimals = {lk_decimals[0], lk_decimals[7:1]};
+
+    // See how fast we do this
+    count_of_iterations <= count_of_iterations + 1'd1;
   end: do_rotate
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -394,11 +414,9 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
     lk_state <= S_POWER_UP;
     states_seen <= '0;
 
-
-    lk_decimals = '1;
-    lk_big = '1;
-    for (int i = 0; i < 8; i++)
-      lk_hexes[i] = '1;
+    count_of_iterations <= '0;
+    count_of_cycles <= '0;
+    saved_iteration_count <= '0;
 
   end: do_reset
 
