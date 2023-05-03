@@ -113,12 +113,14 @@ See Titan Micro Electronics TM1638 Datasheet v1.3:
 // How many bytes we want to output at a time
 parameter OUT_BYTES = 5;
 parameter OUT_BYTES_SZ = $clog2(OUT_BYTES + 1);
+parameter IN_BYTES = 4;
+parameter IN_BYTES_SZ = $clog2(IN_BYTES + 1);
 
 logic reset;
 assign reset = ~KEY[3];
 
 logic sck; // Serial Clock
-logic dio; // data in/out (we use it only for out FOR NOW)
+logic dio_i, dio_o, dio_e;
 logic cs;  // Chip select (previously SS) - active low
 
 logic busy;
@@ -126,38 +128,30 @@ logic activate;
 logic in_cs; // Active high for which chip(s) you want enabled
 logic [7:0] out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] out_count;
+logic  [IN_BYTES_SZ-1:0] in_count;
+logic [7:0] in_data [IN_BYTES];
 
 logic [7:0] next_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] next_out_count;
 
 localparam NUM_LED_BYTES = 16;
-logic [7:0] lk_leds [NUM_LED_BYTES];
-logic [7:0] rotated_lk_leds [NUM_LED_BYTES];
 
-initial begin
-  /*
-  for (int i = 0; i < NUM_LED_BYTES; i += 2) begin
-    lk_leds[i] = '1; // Start with 1 bit set
-    lk_leds[i + 1] = '0;
-  end
-  */
-  for (int i = 0; i < NUM_LED_BYTES; i++) lk_leds[i] = '0;
-  lk_leds[0][0] = '1;
-end
-
-// Pre-calculate our rotated LEDs
+/* Unpacked array bit rotation
 always_comb begin
   rotated_lk_leds[0] = {lk_leds[0][6:0], lk_leds[NUM_LED_BYTES - 1][7]};
   for (int i = 1; i < NUM_LED_BYTES; i++)
     rotated_lk_leds[i] = {lk_leds[i][6:0], lk_leds[i - 1][7]};
 end
+*/
 
 //////////////////////////////////////
 // LED & KEY TM1618 memory mapping
 
+// Easy UI to the LED & KEY outputs
 logic [6:0] lk_hexes [8];
 logic [7:0] lk_decimals;
 logic [7:0] lk_big; // The big LEDs on top
+// Raw TM1618 memory (16 bytes)
 logic [7:0] lk_memory [NUM_LED_BYTES];
 
 // Handle the LED & KEY memory layout from the raw data above
@@ -169,25 +163,40 @@ always_comb begin
   end: for1
 end
 
+`ifdef IS_QUARTUS
+// QuestaSim doesn't like initial blocks (vlog-7061)
 initial begin
   for (int i = 0; i < 7; i++)
     lk_hexes[i] = 7'b1 << i;
-  lk_hexes[7] = 1;
-  lk_decimals = 8'b1;
-  lk_big = 8'h80;
+  lk_hexes[7]   = 7'b1;
+  lk_decimals   = 8'b1;
+  lk_big        = 8'h80;
 end
+`endif // IS_QUARTUS
 
 // END LED & KEY TM1618 memory mapping
 //////////////////////////////////////
 
+
+// Two-way I/O buffer - DO NOT USE OPEN DRAIN (it does not work with LED & KEY module)
+// Datain means IN TO THE BUFFER, which would be OUT FROM THIS MODULE
+// and hence OUT TO THE EXTERNAL PIN
+altiobuf_dio	altiobuf_dio_inst (
+	.dataio (GPIO[21]),
+	.oe     (dio_e),
+	.datain (dio_o),
+	.dataout(dio_i)
+);
+
+
 // Assign our physical interface to TM1638 chip
 assign GPIO[25] = cs;
 assign GPIO[23] = sck;
-assign GPIO[21] = dio; // In the future this needs an ALTIOBUF for I/O
+// assign GPIO[21] - assigned up there with altiobuf
 
 assign LEDG[8] = busy;
 assign LEDG[7] = activate;
-assign LEDG[2:0] = {dio, sck, cs};
+assign LEDG[4:0] = {dio_i, dio_o, dio_e, sck, cs};
 
 spi_controller_ht16d35a #(
   .NUM_SELECTS(1),
@@ -201,7 +210,7 @@ spi_controller_ht16d35a #(
 
   // SPI interface
   .sck, // Serial Clock
-  .dio, // data in/out (we use it only for out FOR NOW)
+  .dio_i, .dio_o, .dio_e,
   .cs,  // Chip select (previously SS) - active low
 
   // Controller interface
@@ -209,7 +218,9 @@ spi_controller_ht16d35a #(
   .activate,
   .in_cs, // Active high for which chip(s) you want enabled
   .out_data,
-  .out_count
+  .out_count,
+  .in_data,
+  .in_count('0) // FIXME
 );
 
 localparam POWER_UP_START = 32'd50_000_000;
@@ -307,9 +318,6 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
     lk_state <= S_POWER_UP;
     power_up_counter <= DELAY_START;
 
-    // Do our rotation logic
-    lk_leds <= rotated_lk_leds;
-
     for (int i = 0; i < 8; i++)
       lk_hexes[i] = {lk_hexes[i][5:0], lk_hexes[i][6]};
     lk_big = {lk_big[6:0], lk_big[7]};
@@ -356,6 +364,13 @@ always_ff @(posedge CLOCK_50) begin: tm1638_main
     power_up_counter <= POWER_UP_START;
     lk_state <= S_POWER_UP;
     states_seen <= '0;
+
+
+    lk_decimals = '1;
+    lk_big = '1;
+    for (int i = 0; i < 8; i++)
+      lk_hexes[i] = '1;
+
   end: do_reset
 
 end: tm1638_main

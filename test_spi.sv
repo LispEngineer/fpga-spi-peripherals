@@ -37,7 +37,7 @@ localparam OUT_BYTES_SZ = $clog2(OUT_BYTES);
 
 // 3-wire SPI interface
 logic sck;
-logic dio;
+logic dio_o, dio_i, dio_e;
 logic [NUM_SELECTS-1:0] cs;
 
 // Controller interface
@@ -50,14 +50,17 @@ logic [OUT_BYTES_SZ-1:0] out_count;
 spi_controller_ht16d35a #(
   .NUM_SELECTS(NUM_SELECTS),
   .OUT_BYTES(OUT_BYTES),
-  .CLK_DIV(12) // Simulation shows this produces a 280ms clock
+  .CLK_DIV(12), // Simulation shows this produces a 280ms clock
+  .ALL_DONE_DELAY(1)
 ) dut (
   .clk,
   .reset,
 
   // SPI interface
   .sck, // Serial Clock
-  .dio, // data in/out (we use it only for out FOR NOW)
+  .dio_o, // data in/out (we use it only for out FOR NOW)
+  .dio_i,
+  .dio_e,
   .cs,  // Chip select (previously SS) - active low
   // FUTURE: input logic sdi // Serial data in (previously MISO)
 
@@ -66,7 +69,9 @@ spi_controller_ht16d35a #(
   .activate,
   .in_cs, // Active high for which chip(s) you want enabled
   .out_data,
-  .out_count
+  .out_count,
+  .in_data(), // Not connected
+  .in_count('0)
 );
 
 

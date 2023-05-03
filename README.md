@@ -170,6 +170,11 @@ Implementations for other platforms:
 
 * "TM1638 can be read up to four bytes only." (v1.3 p7)
 
+* The ALTIOBUF *cannot* be open-drain for the TM1638 in the LED&KEY
+  * If set to open-drain in the FPGA, the TM1638 will miss bits on input.
+
+
+
 ## Writing to LEDs
 
 See flowchart on p11 of v1.3 document:

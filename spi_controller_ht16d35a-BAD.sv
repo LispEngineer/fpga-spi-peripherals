@@ -24,13 +24,17 @@ drive the DIO_O pin for data output, sort of like I²C.
 
 0. Looks like clock idles high
 1. Chip select to low
-2. Transfer data MSB of each byte first
-   * Data is shifted into a register at the rising edge of SCK
+2. Transfer data MSB of each byte first OR LSB if the parameter is set for LSB_FIRST
+   * Data is shifted into a register on the receiver at the rising edge of SCK
    * Input data is loaded into a regiser every 8 bits
 3. For "read mode" (omitted, we're not implementing it)
 4. For a multi-byte command there has to be a 2µs clock held high
    between each byte. (2 1/1,000,000ths of a second, or one 500,000th of a second)
    * This has to also happen after the final bit before releasing CS
+5. After writing each byte, if we have any to read, wait the inter-byte delay
+6. "Output serial data at falling edge of the clock, starting from lower bits.
+   During output, this is a PMOS open drain output."
+7. Some devices need the inter-byte delay before releasing chip select
 
 FIXME: Power up reset has to wait either 1 or 10ms - have that done
 outside this module?
@@ -67,10 +71,8 @@ module spi_controller_ht16d35a #(
   parameter IN_BYTES = 4,
   parameter IN_BYTES_SZ = $clog2(IN_BYTES + 1),
 
-  // Do we need to wait again after releasing CS (to high, since it is active low)?
+  // Do we need to wait after releasing CS (to high, since it is active low)?
   parameter ALL_DONE_DELAY = 0,
-
-  // FIXME: Add parameter to skip the inter-byte delay after the last byte?
 
   // We default to MSB first
   parameter LSB_FIRST = 0
@@ -90,16 +92,20 @@ module spi_controller_ht16d35a #(
   input  logic activate,
   input  logic [NUM_SELECTS-1:0] in_cs, // Active high for which chip(s) you want enabled
   input  logic [7:0] out_data [OUT_BYTES],
-  input  logic [OUT_BYTES_SZ-1:0] out_count,
   output logic [7:0]  in_data [IN_BYTES],
+  input  logic [OUT_BYTES_SZ-1:0] out_count,
   input  logic  [IN_BYTES_SZ-1:0] in_count
 );
+
+// FIXME: Do not allow reads with multiple chip selects enabled?
 
 
 // Our half-bit times are half the CLK_DIV
 localparam CLK_HALF_BIT = (CLK_DIV + 1) >> 1; // $ceil not working for QUESTA
 localparam HALF_BIT_SZ = $clog2(CLK_HALF_BIT) + 1; // This should be 4 but is coming out 3
 localparam HALF_BIT_START = (HALF_BIT_SZ)'(CLK_HALF_BIT);
+
+localparam INTER_BYTE_END_SZ = IN_BYTES_SZ > OUT_BYTES_SZ ? IN_BYTES_SZ : OUT_BYTES_SZ;
 
 typedef enum int unsigned {
   S_IDLE              = 0,
@@ -110,6 +116,7 @@ typedef enum int unsigned {
 } state_t;
 
 state_t state = S_IDLE;
+state_t inter_byte_return;
 
 logic [HALF_BIT_SZ-1:0] half_bit_counter = HALF_BIT_START;
 
@@ -121,6 +128,7 @@ logic  [IN_BYTES_SZ-1:0] r_in_count;
 
 logic [OUT_BYTES_SZ-1:0] current_byte;
 logic [2:0] current_bit; // We send MSB first
+logic [INTER_BYTE_END_SZ-1:0] current_last_byte;
 
 // Calculate a 2µs delay
 localparam INTER_BYTE_DELAY = ((CLK_2us + CLK_DIV - 1) / CLK_DIV) * 2; // $ceil not working for Questa
@@ -144,15 +152,15 @@ always_ff @(posedge clk) begin: main_spi_controller
 
       cs <= '1; // no chips selected (active low)
       sck <= '1; // clock idles high
+      dio_e <= '0;
       busy <= '0;
-      dio_e <= '0; // No output
 
       // FIXME: If activated with no chip selects, should we
       // just pulse the busy and go back to idle?
       // Or just assert busy while it's activated and no chip selects?
       // Same with zero out_count.
 
-      // FIXME: Can we have zero out and some in? Not supported for now.
+      // FIXME: Allow reads with zero out first? Probably not.
 
       if (activate && in_cs != '0 && out_count != '0) begin: activation
         r_in_cs <= in_cs;
@@ -161,14 +169,15 @@ always_ff @(posedge clk) begin: main_spi_controller
         r_in_count <= in_count;
 
         current_byte <= '0;
+        current_last_byte <= out_count - 1'd1;
         current_bit <= 3'd7;
+        dio_e <= '1; // Enable output
 
         // Enable the necessary chips for the very first thing we do
         cs <= ~in_cs;
         // Keep the clock high for a cycle (per tCSL)
         state <= S_SEND_BITS;
         busy <= '1;
-        dio_e <= '1; // We are now sending data
       end: activation
 
     end: s_idle
@@ -177,6 +186,7 @@ always_ff @(posedge clk) begin: main_spi_controller
       // Always enter this state with the sck high!!
 
       sck <= ~sck;
+      inter_byte_return <= S_SEND_BITS;
 
       if (sck) begin
         // Clock is currently high, will transition low.
@@ -191,7 +201,25 @@ always_ff @(posedge clk) begin: main_spi_controller
           // We sent our last bit. We need to delay
           // before our next bit or releasing CS.
           state <= S_INTER_BYTE;
-          inter_byte_delay <= IB_DELAY_START;
+          // Check if we're receiving OR if we need a delay before deasserting CS,
+          // and set inter_byte_delay correctly.
+          if (current_byte == current_last_byte) begin: on_last_write_byte
+
+            // Should we delay or go straight to done?
+            if (r_in_count != 0 || ALL_DONE_DELAY)
+              inter_byte_delay <= IB_DELAY_START;
+            else
+              inter_byte_delay <= 0;
+
+            // Should we read or go straight to done?
+            if (r_in_count != 0) begin
+              inter_byte_return <= S_READ_BITS;
+              current_byte      <= current_byte + 1'd1;
+              current_bit       <= 3'd7;
+            end else begin
+              inter_byte_return <= S_IDLE;
+            end
+          end: on_last_write_byte
         end: last_bit else begin: more_bits
           current_bit <= current_bit - 1'd1;
         end: more_bits
@@ -209,40 +237,80 @@ always_ff @(posedge clk) begin: main_spi_controller
 
       if (inter_byte_delay == 0) begin
         // Are we done sending
-        if (current_byte != r_out_count - 1'd1) begin
+        if (current_byte != current_last_byte) begin
           // We have more bytes to send.
-          state <= S_SEND_BITS;
+          state <= inter_byte_return;
           current_byte <= current_byte + 1'd1;
           current_bit <= 3'd7;
         end else begin
           // No more bytes. We have to hold CS high for tCSW
           // (which is conveniently 2/5ths of a clock cycle time).
           // See pages 5-6.
-          cs <= '1;
-          if (ALL_DONE_DELAY != '0) begin
-            // Need a post-CS deassert delay
-            state <= S_ALL_DONE;
-            inter_byte_delay <= IB_DELAY_START;
+          if (inter_byte_return == S_SEND_BITS && r_in_count != 0) begin
+            // We are done sending bytes, but now we have to receive them
+            current_byte <= '0;
+            current_last_byte <= r_in_count - 1'd1;
+            current_bit <= 3'd7;
+            state <= S_READ_BITS;
           end else begin
             state <= S_IDLE;
-            busy <= '0;
+          end 
+          
+          /*
+          else begin
+            // MAY need a post-CS deassert delay
+            state <= S_ALL_DONE;
+            inter_byte_delay <= 0; // (ALL_DONE_DELAY == 0) ? 0 : IB_DELAY_START;
+            // Yes, this adds a half-bit cycle before we go to IDLE if there is no IB_DELAY
+            // but that won't hurt anything.
           end
+          */
         end
       end
       // We don't care if this underflows
       inter_byte_delay <= inter_byte_delay - 1'd1;
     end: inter_byte
 
+    S_READ_BITS: begin: start_receiving
+      // Always enter this state with the sck high!!
+
+      sck <= ~sck;
+      inter_byte_return <= S_READ_BITS;
+
+      if (sck) begin
+        // Clock is currently high, will transition low.
+        // So, send our output bit for reading when it transitions high again.
+        // The peripheral will send serial data at the falling edge of this clock,
+        // so do nothing for now
+
+      end else begin
+        // Clock is low, just transitioned from high, so read the data
+        in_data[current_byte][LSB_FIRST ? 3'd7 - current_bit : current_bit] <= dio_i;
+
+        if (current_bit == 0) begin: last_bit
+          // We got our last bit. We need to delay
+          // before our next bit or releasing CS.
+          state <= S_INTER_BYTE;
+          inter_byte_delay <= IB_DELAY_START;
+        end: last_bit else begin: more_bits
+          current_bit <= current_bit - 1'd1;
+        end: more_bits
+      end // half bit
+
+    end: start_receiving
+
     S_ALL_DONE: begin: all_done
       // Some implementations have a long inter-packet delay after CS high
-      dio_e <= '0; // We're done, just waiting for post-CS-deassert
 
       if (inter_byte_delay == 0) begin
         state <= S_IDLE;
+        cs <= '1;
+        dio_e <= '0;
         busy <= '0;
+      end else begin
+        // We don't care if this underflows
+        inter_byte_delay <= inter_byte_delay - 1'd1;
       end
-      // We don't care if this underflows
-      inter_byte_delay <= inter_byte_delay - 1'd1;
     end: all_done
 
     endcase // state
@@ -255,8 +323,8 @@ always_ff @(posedge clk) begin: main_spi_controller
     cs <= '1; // no chips selected (active low)
     sck <= '1; // clock idles high
     busy <= '1; // Busy while in reset
-    dio_e <= '0; // No output
     state <= S_IDLE;
+    dio_e <= '0; // Disable output
   end: last_assignment_wins_reset
 
 end: main_spi_controller
