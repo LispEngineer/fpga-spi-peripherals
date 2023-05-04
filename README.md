@@ -117,13 +117,15 @@ Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
 
 * [DONE] Implement the read side of the 3-wire SPI module
   * Rename the module to 3-wire SPI or something not specific to HT16D35A
-* Create a generic TM1638 driver module that takes 16 bytes memory input
+* [DONE] Create a generic TM1638 driver module that takes 16 bytes memory input
   and 4 bytes memory output and constantly refreshes that automatically
-  * Include a pulse output for every time the input is sampled
+  * Include a pulse output for every time the input is sampled, or
+    the system is busy, or when the outputs update
   * Synchronize the inputs if we care, or we can simply not care, as they
     will be sampled very frequently and a little bit error won't matter much
 * Create a specific module that works with LED & KEY, takes the hex inputs and
   the LED/decimal inputs, and outputs the 8 keys
+  * (Currently done at the top level)
 * Create a specific module that works with the QYF 8-segment & 16 key version
 
 
