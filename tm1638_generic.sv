@@ -27,6 +27,15 @@ altiobuf_dio	altiobuf_dio_inst (
 // TODOs:
 // 1. Adjustable brightness
 // 2. Display off and on
+// 3. A busy/refreshing flag? A pulse when starting or ending refreshing?
+//    Or maybe one which is "about to start refreshing?"
+
+
+
+`ifdef IS_QUARTUS // Defined in Assignments -> Settings -> ... -> Verilog HDL Input
+// This doesn't work in Questa for some reason. vlog-2892 errors.
+`default_nettype none // Disable implicit creation of undeclared nets
+`endif
 
 
 module tm1638_generic #(
@@ -57,6 +66,9 @@ module tm1638_generic #(
   input  logic dio_i, // data in/out - IN
   output logic dio_e, // data in/out - enable for in/out buffer
   output logic cs,    // Chip select (previously SS) - active low
+
+  // TODO: Add a pulse when we start refreshing and end refreshing?
+  // Or maybe just a "refreshing" flag?
 
   // LED outputs
   input  logic [7:0] tm1638_out [TM1638_OUT_COUNT],
@@ -243,3 +255,6 @@ end: tm1638_main
 
 endmodule
 
+`ifdef IS_QUARTUS // Defined in Assignments -> Settings -> ... -> Verilog HDL Input
+`default_nettype wire // turn implicit nets on again to avoid side-effects
+`endif
