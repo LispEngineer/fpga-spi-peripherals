@@ -56,7 +56,7 @@ The Cyclone IV built in weak pull-up seems sufficient for the job though.
 `default_nettype none // Disable implicit creation of undeclared nets
 `endif
 
-module spi_controller_ht16d35a #(
+module spi_3wire_controller #(
   // How many chip select outputs we want
   parameter NUM_SELECTS = 2,
   parameter SELECT_SZ = $clog2(NUM_SELECTS),

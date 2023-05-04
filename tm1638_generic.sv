@@ -95,7 +95,7 @@ logic [IN_BYTES_SZ-1:0] in_count;
 logic [7:0] out_data [OUT_BYTES];
 logic in_cs;
 
-spi_controller_ht16d35a #(
+spi_3wire_controller #(
   .CLK_DIV(CLK_DIV), // 20ns/50MHz system clock -> 400ns/2.5MHz TM1638 clock
   .CLK_2us(CLK_2us),
   .OUT_BYTES(OUT_BYTES),

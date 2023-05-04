@@ -56,7 +56,7 @@ logic [OUT_BYTES_SZ-1:0] out_count;
 logic [7:0] in_data [IN_BYTES];
 logic [IN_BYTES_SZ-1:0] in_count;
 
-spi_controller_ht16d35a #(
+spi_3wire_controller #(
   .NUM_SELECTS(NUM_SELECTS),
   .OUT_BYTES(OUT_BYTES),
   .CLK_DIV(12), // Simulation shows this produces a 280ms clock
