@@ -1,22 +1,21 @@
 // Copyright 2022 Douglas P. Fields, Jr. All Rights Reserved.
 
 /*
-Implementation of an SPI Controller,
-LIMITED in these ways:
-* Does not handle incoming data
-* Targeted to the HT16D35A which uses a 3-wire SPI interface
+Implementation of a 3-wire SPI Controller,
 
-Future:
+TODO:
 * Use a FIFO for transmit data, and stop the transaction once
   an end delimiter comes OR the FIFO is empty?
 
-There are four official SPIP modes:
+There are four official SPI modes:
 * 0: Clock idles at 0, out changes data on trailing edge and in captures at leading  edge
 * 1: Clock idles at 0, out changes data on leading  edge and in captures at trailing edge
 * 2: Clock idles at 1, out changes data on trailing edge and in captures at leading  edge
 * 3: Clock idles at 1, out changes data on leading  edge and in captures at trailing edge
 * When clock idles at 0, leading edge is a rising edge.
 * When clock idles at 1, leading edge is a falling edge.
+
+For 3-wire SPI:
 
 See Holtek HT16D35A Rev 1.22 Data sheet starting on page 51.
 Looks like it uses a 3-pin SPI instead of 4-pin, and it can
