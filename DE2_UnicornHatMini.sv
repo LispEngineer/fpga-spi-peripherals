@@ -115,7 +115,7 @@ logic reset;
 assign reset = ~KEY[3];
 
 //////////////////////////////////////////////////////////////////////
-// Assign our physical interface to TM1638 chip
+// Assign our physical interface to TM1638 chip for LED & KEY
 
 logic sck; // Serial Clock
 logic dio_i, dio_o, dio_e;
@@ -134,42 +134,17 @@ altiobuf_dio	altiobuf_dio_inst (
 assign GPIO[25] = cs;
 assign GPIO[23] = sck;
 
-// END - physical interface to TM1638 chip
+// END - physical interface to TM1638 chip for LED & KEY
 //////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////
-// LED & KEY TM1618 memory mapping
-
-localparam NUM_LED_BYTES = 16;
-// How many bytes of key data we read from TM1618
-parameter IN_BYTES = 4;
-parameter IN_BYTES_SZ = $clog2(IN_BYTES + 1);
-
-// Raw data read from the TM1638
-logic [7:0] in_data [IN_BYTES];
+// LED & KEY TM1618 controller, display outputs & key inputs
 
 // Easy UI to the LED & KEY outputs
 logic [6:0] lk_hexes [8];
 logic [7:0] lk_decimals;
 logic [7:0] lk_big; // The big LEDs on top
 logic [7:0] lk_keys; // The keys on the LED&KEY - 1 is pressed
-// Raw TM1618 memory (16 bytes)
-logic [7:0] lk_memory [NUM_LED_BYTES];
-
-// Handle the LED & KEY memory layout from the raw data above
-always_comb begin
-  for (int i = 0; i < 8; i++) begin: for1
-    lk_memory[i * 2][6:0] = lk_hexes[i];
-    lk_memory[i * 2][7] = lk_decimals[i];
-    lk_memory[i * 2 + 1][0] = lk_big[i];
-  end: for1
-  // Keys are mapped: 1-4 are the 0 bits of the 4 bytes
-  // 5-8 are the 4 bits of the 4 bytes
-  for (int i = 0; i < 4; i++) begin: for2
-    lk_keys[0 + i] = in_data[i][0];
-    lk_keys[4 + i] = in_data[i][4];
-  end: for2
-end
 
 `ifdef IS_QUARTUS
 // QuestaSim doesn't like initial blocks (vlog-7061)
@@ -182,7 +157,7 @@ initial begin
 end
 `endif // IS_QUARTUS
 
-tm1638_generic /* #(
+led_n_key_controller /* #(
   // All parameters default
 ) */ led_n_key_inst (
   .clk(CLOCK_50),
@@ -193,8 +168,10 @@ tm1638_generic /* #(
   .dio_i, .dio_o, .dio_e,
   .cs,  // Chip select (previously SS) - active low
 
-  .tm1638_out(lk_memory),
-  .tm1638_in(in_data)
+  .lk_hexes,
+  .lk_decimals,
+  .lk_big,
+  .lk_keys
 );
 
 // END LED & KEY TM1618 memory mapping
