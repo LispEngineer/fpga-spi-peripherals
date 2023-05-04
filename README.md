@@ -212,6 +212,13 @@ Amazon links:
     for the maximum useful speed or about 100Hz respectively.
 
 
+* I connected a QYF-1638 instead of an LED&KEY, using LED&KEY memory map
+  * Key presses were not registered
+  * Multiple key presses showed up on the LEDs
+  * LEDs shown were "incorrect" in the pattern they made
+  * ...but it otherwise "worked"
+
+
 ## Writing to LEDs
 
 See flowchart on p11 of v1.3 document:
