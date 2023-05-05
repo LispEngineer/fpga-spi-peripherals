@@ -19,14 +19,13 @@
 #
 # Quartus Prime
 # Version 21.1.0 Build 842 10/21/2021 SJ Lite Edition
-# Date created = 09:56:00  May 05, 2023
+# Date created = 09:58:54  May 05, 2023
 #
 # -------------------------------------------------------------------------- #
 
 QUARTUS_VERSION = "21.1"
-DATE = "09:56:00  May 05, 2023"
+DATE = "09:58:54  May 05, 2023"
 
 # Revisions
 
 PROJECT_REVISION = "DE2_SPI_Peripherals"
-PROJECT_REVISION = "DE2_UnicornHatMini"
