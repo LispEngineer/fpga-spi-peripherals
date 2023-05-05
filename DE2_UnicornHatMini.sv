@@ -138,27 +138,9 @@ assign GPIO[23] = sck;
 //////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////
-// LED & KEY TM1618 controller, display outputs & key inputs
+// LED & KEY TM1618 demo
 
-// Easy UI to the LED & KEY outputs
-logic [6:0] lk_hexes [8];
-logic [7:0] lk_decimals;
-logic [7:0] lk_big; // The big LEDs on top
-logic [7:0] lk_keys; // The keys on the LED&KEY - 1 is pressed
-
-`ifdef IS_QUARTUS
-// QuestaSim doesn't like initial blocks (vlog-7061)
-initial begin
-  for (int i = 0; i < 7; i++)
-    lk_hexes[i] = 7'b1 << i;
-  lk_hexes[7]   = 7'b1;
-  lk_decimals   = 8'b1;
-end
-`endif // IS_QUARTUS
-
-assign lk_big = lk_keys;
-
-led_n_key_controller /* #(
+led_n_key_demo /* #(
   // All parameters default
 ) */ led_n_key_inst (
   .clk(CLOCK_50),
@@ -167,46 +149,14 @@ led_n_key_controller /* #(
   // SPI interface
   .sck, // Serial Clock
   .dio_i, .dio_o, .dio_e,
-  .cs,  // Chip select (previously SS) - active low
-
-  .lk_hexes,
-  .lk_decimals,
-  .lk_big,
-  .lk_keys
+  .cs  // Chip select (previously SS) - active low
 );
 
 // END LED & KEY TM1618 memory mapping
 /////////////////////////////////////////////////////////////////////
 
-// Do something fun
-
-assign LEDR[17:10] = lk_keys;
 assign LEDG[4:0] = {dio_i, dio_o, dio_e, sck, cs};
-assign hex_display[7:0] = lk_keys;
 
-localparam SLEEP_DELAY = 32'd5_000_000;
-logic [31:0] sleep_count;
-
-always_ff @(posedge CLOCK_50) begin: rotate_periodically
-
-  if (!reset) begin
-    if (sleep_count == 0) begin
-      sleep_count <= SLEEP_DELAY;
-
-      // Rotate everything in our display for fun
-      for (int i = 0; i < 8; i++) begin
-        // Make the outside circle around
-        lk_hexes[i][5:0] <= {lk_hexes[i][4:0], lk_hexes[i][5]};
-        // Make center dash move around
-        lk_hexes[i + 1 >= 8 ? i + 1 - 8 : i + 1][6] <= lk_hexes[i][6];
-      end
-      lk_decimals <= {lk_decimals[0], lk_decimals[7:1]};
-
-    end else begin
-      sleep_count <= sleep_count - 1'd1;
-    end
-  end
-end: rotate_periodically
 
 endmodule
 

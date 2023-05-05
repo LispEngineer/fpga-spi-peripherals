@@ -359,6 +359,7 @@ set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_spi -section_id test
 set_global_assignment -name EDA_TEST_BENCH_FILE spi_controller_ht16d35a.sv -section_id test_spi -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE test_spi.sv -section_id test_spi -hdl_version SystemVerilog_2005
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO[21]
+set_global_assignment -name SYSTEMVERILOG_FILE led_n_key_demo.sv
 set_global_assignment -name SYSTEMVERILOG_FILE led_n_key_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE spi_3wire_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE tm1638_generic.sv
