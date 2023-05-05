@@ -116,8 +116,22 @@ See Holtek HT16D35A Datasheet Rev 1.22:
 Questions:
 */
 
+logic sck, sdo;
+logic [1:0] cs;
 
+assign GPIO[32] = cs[0];
+assign GPIO[34] = cs[1];
+assign GPIO[30] = sck;
+assign GPIO[28] = sdo;
 
+assign LEDG[3:0] = {sdo, sck, cs[1], cs[0]};
+
+unicorn_hat_mini_controller uhm_inst (
+  .clk(CLOCK_50),
+  .reset,
+
+  .sck, .sdo, .cs
+);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -177,7 +191,6 @@ assign LEDG[4:0] = {dio_i, dio_o, dio_e, sck, cs};
 ///////////////////////////////////////////////////////////////////////////////
 // QYF-TM1638
 
-`define USE_QYF_TM1638_TOP_LEVEL 
 `ifdef USE_QYF_TM1638_TOP_LEVEL
 
 //////////////////////////////////////////////////////////////////////
@@ -217,60 +230,6 @@ qyf_tm1638_demo /* #(
   .dio_i, .dio_o, .dio_e,
   .cs
 );
-
-
-`ifdef OLD_QYF_DEMO
-logic [6:0] qyf_hexes [8];
-logic [7:0] qyf_dots;
-logic [31:0] qyf_num = 32'h1234_CDEF;
-logic [15:0] qyf_keys;
-logic [7:0] d_in_data [4];
-
-seven_segment ssqhex0 (.num(qyf_num[3:0]),   .hex(qyf_hexes[0]));
-seven_segment ssqhex1 (.num(qyf_num[7:4]),   .hex(qyf_hexes[1]));
-seven_segment ssqhex2 (.num(qyf_num[11:8]),  .hex(qyf_hexes[2]));
-seven_segment ssqhex3 (.num(qyf_num[15:12]), .hex(qyf_hexes[3]));
-seven_segment ssqhex4 (.num(qyf_num[19:16]), .hex(qyf_hexes[4]));
-seven_segment ssqhex5 (.num(qyf_num[23:20]), .hex(qyf_hexes[5]));
-seven_segment ssqhex6 (.num(qyf_num[27:24]), .hex(qyf_hexes[6]));
-seven_segment ssqhex7 (.num(qyf_num[31:28]), .hex(qyf_hexes[7]));
-
-assign hex_display[31:24] = d_in_data[3];
-assign hex_display[23:16] = d_in_data[2];
-assign hex_display[15:8]  = d_in_data[1];
-assign hex_display[7:0]   = d_in_data[0];
-
-assign LEDR[15:0] = qyf_keys;
-
-`ifdef IS_QUARTUS
-initial begin
-  qyf_dots = 8'b1010_0101;
-end
-`endif
-
-qyf_tm1638_controller /* #(
-  // All parameters default
-) */ qyf_inst (
-  .clk(CLOCK_50),
-  .reset,
-
-  // SPI interface
-  .sck, // Serial Clock
-  .dio_i, .dio_o, .dio_e,
-  .cs,  // Chip select (previously SS) - active low
-
-  // QYF-TM1638 interface
-  .hexes(qyf_hexes),
-  .decimals(qyf_dots),
-  .keys(qyf_keys),
-
-  // Debug
-  .d_in_data
-);
-`endif // OLD_QYF_DEMO
-
-// END LED & KEY TM1618 memory mapping
-/////////////////////////////////////////////////////////////////////
 
 assign LEDG[4:0] = {dio_i, dio_o, dio_e, sck, cs};
 
