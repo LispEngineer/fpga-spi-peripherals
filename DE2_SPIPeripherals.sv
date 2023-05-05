@@ -7,7 +7,7 @@
 `endif
 
 
-module DE2_UnicornHatMini (
+module DE2_SPI_Peripherals (
   //////////// CLOCK //////////
   input  logic        CLOCK_50,
   input  logic        CLOCK2_50,
@@ -124,7 +124,7 @@ logic cs;  // Chip select (previously SS) - active low
 // Two-way I/O buffer - DO NOT USE OPEN DRAIN (it does not work with LED & KEY module)
 // Datain means IN TO THE BUFFER, which would be OUT FROM THIS MODULE
 // and hence OUT TO THE EXTERNAL PIN
-altiobuf_dio	altiobuf_dio_inst (
+altiobuf_dio	altiobuf_dio_inst ( 
 	.dataio (GPIO[21]),
 	.oe     (dio_e),
 	.datain (dio_o),
