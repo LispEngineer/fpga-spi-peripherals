@@ -14,6 +14,32 @@ Pimoroni Unicorn Hat Mini.
   * Testbench for this
 * Generic TM1638 controller
 * LED & KEY board-specific controller
+* LED & KEY demo
+* QYF-TM1638 board-specific controller
+* QYF-TM1638 demo
+
+## Modules
+
+* `seven_segment` - My usual combinational 7-segment driver
+* `spi_3wire_controller` - a simple controller for a 3-wire SPI with
+  `DIO` input/output
+* `test_spi` - a Quartus test bench to show that the waveforms the
+  SPI controller generates are as expected
+  * (TODO) This does not do input testing
+* `tm1638_generic` - a simple controller for TM1638 boards built on
+  the 3-wire SPI. These boards have 16 bytes of output RAM
+  (for LEDs), 4 bytes of input RAM (for keys), and a brightness
+  setting (not implemented).
+* `led_n_key_controller` - a simple controller specifically for the
+  TM1638-based `LED&KEY` controller available all over the place
+  inexpensively (such as [Amazon](https://www.amazon.com/dp/B0B7GMTMVB))
+  * 8 7-segs (with decimal point), 8 LEDs, 8 buttons
+  * no crosstalk/interference between any functions
+* `qyf_tm1638_controller` - a simple controller for the QYF board
+  also (obviously) based on the TM1638 (such as [Amazon](https://www.amazon.com/dp/B0BXDL1LG1))
+  * Not as nice as the above, but has 16 keys which cannot be safely multi-
+    pressed in any combination
+* `*_demo` - simple demo applications for the boards
 
 ## Implementation Notes
 
@@ -26,7 +52,6 @@ Pimoroni Unicorn Hat Mini.
 
 --------------------------------------------------------------------------------------------------------
 
-
 # TM1638 Button/Display for FPGA
 
 Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
@@ -34,17 +59,17 @@ Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
 # TODO
 
 * [DONE] Implement the read side of the 3-wire SPI module
-  * Rename the module to 3-wire SPI or something not specific to HT16D35A
+  * [DONE] Rename the module to 3-wire SPI or something not specific to HT16D35A
 * [DONE] Create a generic TM1638 driver module that takes 16 bytes memory input
   and 4 bytes memory output and constantly refreshes that automatically
   * Include a pulse output for every time the input is sampled, or
     the system is busy, or when the outputs update
   * Synchronize the inputs if we care, or we can simply not care, as they
     will be sampled very frequently and a little bit error won't matter much
-* Create a specific module that works with LED & KEY, takes the hex inputs and
+* [DONE] Create a specific module that works with LED & KEY, takes the hex inputs and
   the LED/decimal inputs, and outputs the 8 keys
   * (Currently done at the top level)
-* Create a specific module that works with the QYF 8-segment & 16 key version
+* [DONE] Create a specific module that works with the QYF 8-segment & 16 key version
 
 
 # TM1638 References
@@ -99,18 +124,7 @@ Amazon links:
 
 * "TM1638 can be read up to four bytes only." (v1.3 p7)
 
-* The ALTIOBUF *cannot* be open-drain for the TM1638 in the LED&KEY
-  * If set to open-drain in the FPGA, the TM1638 will miss bits on input.
-
-* See the code for mappings:
-  * Keys: they use K3 only, and all 8 KS#s (see p7)
-  * LEDs: i: 0..7
-
-        lk_memory[i * 2    ][6:0] = lk_hexes[i];
-        lk_memory[i * 2    ][7]   = lk_decimals[i];
-        lk_memory[i * 2 + 1][0]   = lk_big[i];
-
-* This can refresh very, very fast.
+* The TM1638 in the LED&KEY can refresh very, very fast.
   * The refresh based these basic settings:
     * `CLK_DIV = 20`
     * `ALL_DONE_DELAY = 1`
@@ -132,13 +146,6 @@ Amazon links:
     for the maximum useful speed or about 100Hz respectively.
 
 
-* I connected a QYF-1638 instead of an LED&KEY, using LED&KEY memory map
-  * Key presses were not registered
-  * Multiple key presses showed up on the LEDs
-  * LEDs shown were "incorrect" in the pattern they made
-  * ...but it otherwise "worked"
-
-
 ## Writing to LEDs
 
 See flowchart on p11 of v1.3 document:
@@ -151,6 +158,25 @@ See flowchart on p11 of v1.3 document:
 4. Set brightness to maximum (0x8F)
    * Table 5.3, 8'b10_00_1_111 = Display on, Pulse width 14/16 (maximum)
 
+
+# LED & KEY Details
+
+* The `DIO` ALTIOBUF *cannot* be open-drain for the TM1638 in the LED&KEY
+  * If set to open-drain in the FPGA, the TM1638 will miss bits on input.
+
+* Requires "Weak pull-up resistor" on the `DIO` line (`GPIO[21]` in this code)
+
+
+* See the code for mappings:
+  * Keys: they use K3 only, and all 8 KS#s (see p7)
+  * LEDs: i: 0..7
+
+        lk_memory[i * 2    ][6:0] = lk_hexes[i];
+        lk_memory[i * 2    ][7]   = lk_decimals[i];
+        lk_memory[i * 2 + 1][0]   = lk_big[i];
+
+* Works well with 3.3V
+
 ## LED Memory Mapping
 
 7-segment displays:
@@ -159,6 +185,55 @@ See flowchart on p11 of v1.3 document:
 
 8 big LEDs:
 * Every odd byte, bit 0, is the LED
+
+# QYF-TM1638 Details
+
+* I connected a QYF-1638 instead of an LED&KEY, using LED&KEY memory map
+  * Key presses were not registered
+  * Multiple key presses showed up on the LEDs
+  * LEDs shown were "incorrect" in the pattern they made
+  * ... therefore it needs a completely different "controller"
+
+* Keys share LED lines without diodes as in the LED&KEY device
+  * Pressing multiple keys may light LEDs
+
+* Works fine with 3.3V
+
+All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
+
+## QYF-TM1638 Connection
+
+* This has built-in pull-up resistors (see schematic) and also capacitors
+  on the lines (I do not know why it has capacitors)
+  * So it doesn't need an internal weak pull-up or external pull-up
+* It does not need open-drain I/O buffers
+* So, just use a standard ALTIOBUF
+
+## QYF-TM1638 memory model
+
+* Display: Looks like every other byte is used, starting with 0
+  * One segment of all 8 displays are used for each input byte
+  * The order is in the usual 7-seg order, with bit 7 being the decimal point
+
+* Keys:
+  * Keys 1-8/9-16 start at the lowest nibble for 1/9
+    * 1-8 are the 4-value bit of each nibble
+    * 9-16 are the 2-value bit of each nibble
+  * Only two keys can be pressed simultaneously without display artifacts:
+    * one of 1-8 and one of 9-16 
+  * The two pressed keys can always be read correctly - the same combination above
+    * Examples of incorrectly read keys:
+      * 1, 2, 9 -> Read as 1, 2, 9, 10
+      * 1, 2, 3, 11 -> Read as 1, 2, 3 and 9, 10, 11
+  * One key from each of the 1-8 and 9-16 columns can be pressed and read correctly
+    for 8 pressed keys read correctly if they are the exact correct 8
+  * Maybe reject any keypresses that involve both 1-8 and corresponding 9-16
+    simultaneously pressed
+   
+## QYF-TM1638 Demo
+
+* Keys make the digits go up or down by one
+* Decimal point goes around and around
 
 --------------------------------------------------------------------------------------------------------
 

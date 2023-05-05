@@ -384,6 +384,8 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[33]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[34]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[35]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO[21]
+set_global_assignment -name SYSTEMVERILOG_FILE qyf_tm1638_demo.sv
+set_global_assignment -name SYSTEMVERILOG_FILE qyf_tm1638_controller.sv
 set_global_assignment -name SDC_FILE DE2_SPIPeripherals.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE DE2_SPIPeripherals.sv
 set_global_assignment -name SYSTEMVERILOG_FILE led_n_key_demo.sv

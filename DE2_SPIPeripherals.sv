@@ -38,6 +38,10 @@ module DE2_SPI_Peripherals (
 
 	//////////// GPIO, GPIO connect to GPIO Default //////////
 	inout        [35:0] GPIO
+
+  // GPIO 21 is configured to Weak Pull-Up
+  // \--> Used for LED&KEY DIO as a required pull-up
+  // TODO: TRY EX_IO with the 2.2KΩ external pull up
 );
 
 
@@ -77,6 +81,11 @@ seven_segment sshex7 (.num(hex_display[31:28]), .hex(ihex7));
 // END 7 Segment logic
 /////////////////////////////////////////////////////////////////////////////////
 
+logic reset;
+assign reset = ~KEY[3];
+
+
+
 
 /* 
 See Holtek HT16D35A Datasheet Rev 1.22:
@@ -107,12 +116,16 @@ See Holtek HT16D35A Datasheet Rev 1.22:
 Questions:
 */
 
+
+
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // LED & KEY (TM1638)
 // See Titan Micro Electronics TM1638 Datasheet v1.3:
 
-logic reset;
-assign reset = ~KEY[3];
+
+`ifdef USE_LEDnKEY_TOP_LEVEL
 
 //////////////////////////////////////////////////////////////////////
 // Assign our physical interface to TM1638 chip for LED & KEY
@@ -156,6 +169,112 @@ led_n_key_demo /* #(
 /////////////////////////////////////////////////////////////////////
 
 assign LEDG[4:0] = {dio_i, dio_o, dio_e, sck, cs};
+
+`endif // USE_LEDnKEY_TOP_LEVEL
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// QYF-TM1638
+
+`define USE_QYF_TM1638_TOP_LEVEL 
+`ifdef USE_QYF_TM1638_TOP_LEVEL
+
+//////////////////////////////////////////////////////////////////////
+// Assign our physical interface to TM1638 chip for QYF-TM1638
+
+logic sck; // Serial Clock
+logic dio_i, dio_o, dio_e;
+logic cs;  // Chip select (previously SS) - active low
+
+// Two-way I/O buffer - NOT OPEN DRAIN
+// Datain means IN TO THE BUFFER, which would be OUT FROM THIS MODULE
+// and hence OUT TO THE EXTERNAL PIN 
+altiobuf_dio	altiobuf_dio_inst (
+	.dataio (GPIO[20]),
+	.oe     (dio_e),
+	.datain (dio_o),
+	.dataout(dio_i)
+);
+
+assign GPIO[24] = cs;
+assign GPIO[22] = sck;
+
+// END - physical interface to TM1638 chip for QYF-TM1638
+//////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////
+// QYF-TM1618 demo
+
+qyf_tm1638_demo /* #(
+  // All parameters default
+) */ qyf_inst (
+  .clk(CLOCK_50),
+  .reset,
+
+  // SPI interface
+  .sck, // Serial Clock
+  .dio_i, .dio_o, .dio_e,
+  .cs
+);
+
+
+`ifdef OLD_QYF_DEMO
+logic [6:0] qyf_hexes [8];
+logic [7:0] qyf_dots;
+logic [31:0] qyf_num = 32'h1234_CDEF;
+logic [15:0] qyf_keys;
+logic [7:0] d_in_data [4];
+
+seven_segment ssqhex0 (.num(qyf_num[3:0]),   .hex(qyf_hexes[0]));
+seven_segment ssqhex1 (.num(qyf_num[7:4]),   .hex(qyf_hexes[1]));
+seven_segment ssqhex2 (.num(qyf_num[11:8]),  .hex(qyf_hexes[2]));
+seven_segment ssqhex3 (.num(qyf_num[15:12]), .hex(qyf_hexes[3]));
+seven_segment ssqhex4 (.num(qyf_num[19:16]), .hex(qyf_hexes[4]));
+seven_segment ssqhex5 (.num(qyf_num[23:20]), .hex(qyf_hexes[5]));
+seven_segment ssqhex6 (.num(qyf_num[27:24]), .hex(qyf_hexes[6]));
+seven_segment ssqhex7 (.num(qyf_num[31:28]), .hex(qyf_hexes[7]));
+
+assign hex_display[31:24] = d_in_data[3];
+assign hex_display[23:16] = d_in_data[2];
+assign hex_display[15:8]  = d_in_data[1];
+assign hex_display[7:0]   = d_in_data[0];
+
+assign LEDR[15:0] = qyf_keys;
+
+`ifdef IS_QUARTUS
+initial begin
+  qyf_dots = 8'b1010_0101;
+end
+`endif
+
+qyf_tm1638_controller /* #(
+  // All parameters default
+) */ qyf_inst (
+  .clk(CLOCK_50),
+  .reset,
+
+  // SPI interface
+  .sck, // Serial Clock
+  .dio_i, .dio_o, .dio_e,
+  .cs,  // Chip select (previously SS) - active low
+
+  // QYF-TM1638 interface
+  .hexes(qyf_hexes),
+  .decimals(qyf_dots),
+  .keys(qyf_keys),
+
+  // Debug
+  .d_in_data
+);
+`endif // OLD_QYF_DEMO
+
+// END LED & KEY TM1618 memory mapping
+/////////////////////////////////////////////////////////////////////
+
+assign LEDG[4:0] = {dio_i, dio_o, dio_e, sck, cs};
+
+`endif // USE_QYF_TM1638_TOP_LEVEL
 
 
 endmodule
