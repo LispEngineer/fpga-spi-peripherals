@@ -153,9 +153,10 @@ initial begin
     lk_hexes[i] = 7'b1 << i;
   lk_hexes[7]   = 7'b1;
   lk_decimals   = 8'b1;
-  lk_big        = 8'h80;
 end
 `endif // IS_QUARTUS
+
+assign lk_big = lk_keys;
 
 led_n_key_controller /* #(
   // All parameters default
@@ -199,7 +200,6 @@ always_ff @(posedge CLOCK_50) begin: rotate_periodically
         // Make center dash move around
         lk_hexes[i + 1 >= 8 ? i + 1 - 8 : i + 1][6] <= lk_hexes[i][6];
       end
-      lk_big <= {lk_big[6:0], lk_big[7]};
       lk_decimals <= {lk_decimals[0], lk_decimals[7:1]};
 
     end else begin
