@@ -17,6 +17,15 @@ Pimoroni Unicorn Hat Mini.
 * LED & KEY demo
 * QYF-TM1638 board-specific controller
 * QYF-TM1638 demo
+* Unicorn Hat Mini-specific controller
+  * Binary mode only (i.e., RGB non-grayscale)
+* UHM demo
+
+## TODO
+
+* Unicorn Hat Mini
+  * Brightness for binary mode
+  * Grayscale mode
 
 ## Modules
 
@@ -39,6 +48,10 @@ Pimoroni Unicorn Hat Mini.
   also (obviously) based on the TM1638 (such as [Amazon](https://www.amazon.com/dp/B0BXDL1LG1))
   * Not as nice as the above, but has 16 keys which cannot be safely multi-
     pressed in any combination
+* `unicorn_hat_mini_controller` - a simple controller for the 
+  [Pimoroni Unicorn Hat Mini](https://shop.pimoroni.com/en-us/products/unicorn-hat-mini)
+  which handles RGB color (without grayscale for now). Takes a 17x7 array of
+  1-bit RGB pixels and refreshes the display regularly.
 * `*_demo` - simple demo applications for the boards
 
 ## Implementation Notes
@@ -426,6 +439,7 @@ to get access to the "COM" port.
  * 07-09 - column 15
  * 0a-0c - column 16
  * 0d-0f - column 17
+ * NOTE: BELOW HERE IS NOT QUITE ACCURATE
  * 10-12 - nothing (!!)
  * 13-15 - column 11, blue, green, red (!!)
  * 16-18 - column 10, blue, green, red
@@ -434,6 +448,7 @@ to get access to the "COM" port.
  * 1b - column 12, red
 
  So for the display: binary_mem:bit
+ THIS IS ACCURATE!
 
         RED
         LEFT                           || RIGHT

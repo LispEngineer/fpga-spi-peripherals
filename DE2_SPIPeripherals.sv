@@ -124,9 +124,9 @@ assign GPIO[34] = cs[1];
 assign GPIO[30] = sck;
 assign GPIO[28] = sdo;
 
-assign LEDG[3:0] = {sdo, sck, cs[1], cs[0]};
+assign LEDG[3:0] = {sdo, ~sck, ~cs[1], ~cs[0]}; // These signal idle high so show them when low
 
-unicorn_hat_mini_controller /* #(
+unicorn_hat_mini_demo /* #(
   .CLK_DIV(32)
 ) */ uhm_inst (
   .clk(CLOCK_50),
