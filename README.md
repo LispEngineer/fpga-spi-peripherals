@@ -331,6 +331,132 @@ See Holtek HT16D35A Datasheet Rev 1.22
 * Page 60 for Initialization
 * Page 61 for Writing Display
 
+### Initialization
+
+page 60 and [GitHub](https://github.com/pimoroni/unicornhatmini-python/blob/master/library/unicornhatmini/__init__.py)
+
+* COM output control
+  * 41 ff
+* ROW output Control
+  * 42 ff ff ff ff
+* Binary/Gray mode
+  * 31 00/01 (default 00 - gray, 01 - binary, see page 22)
+* Number of COM output
+  * 32 ?? (default 07 - this is NOT set by the Unicorn Hat Mini)
+* Constant current ratio
+  * 36 ?? (default 00 - this is NOT set by the Unicorn Hat Mini)
+* Global brightness control
+  * 37 01 (default 40 - maximum)
+* System control - oscillator on
+  * 35 02
+
+### Screen display
+
+page 61
+
+* Set display RAM address
+  * 80 00 ... (00-1b for binary, 00-fb for gray)
+* Wrtie display RAM data
+* Set system control - display on
+  * 35 03
+
+### My minimal initialization sequence
+
+(Tested this out in SPIDriver)
+
+* COM output control
+  * 41 ff
+* ROW output Control
+  * 42 ff ff ff ff
+* Binary/Gray mode
+  * 31 01 (binary mode, for now)
+* Clear memory (binary) - it starts up with random contents
+  80 00 00 00 00 00
+  80 04 00 00 00 00
+  80 08 00 00 00 00
+  80 0b 00 00 00 00
+  80 10 00 00 00 00
+  80 14 00 00 00 00
+  80 18 00 00 00 00
+* System control - oscillator on & display on
+  * 35 03
+
+...then repeatedly send 28 bytes of memory.
+
+# Reverse engineering UHM
+
+Used a [SPIDriver](https://spidriver.com/)
+to test much of this out. Note that the SPIDriver
+Windows application seems to need to run as Administrator
+to get access to the "COM" port.
+
+* CS0 = left half
+* CS1 = right half
+
+## Binary mode
+
+* Memory 00-1b = 28 bytes (00-27 decimal)
+* Mapping: for CS0/CE0 (left side chip)
+  * 00 - nothing
+  * 01 - column 3, red
+  * 02 - column 3, blue
+  * 03 - column 3, green
+    * bit 0 - row 2
+    * bit 1 - row 4
+    * bit 2 - row 3
+    * bit 3 - row 1
+    * bit 4 - row 5
+    * bit 5 - row 7
+    * bit 6 - row 6
+    * bit 7 - nothing
+  * 04-06 - column 4, rgb
+  * 07-09 - column 5
+  * 0a-0c - column 6
+  * 0d-0f - column 7
+  * 10-12 - column 8
+  * 13-15 - column 9
+  * 16-18 - column 2, blue, green, red (!!)
+  * 19-1b - column 1, blue, green, red (!!)
+* Mapping for CS1/CE1 (right side chip)
+ * 00 - nothing
+ * 01 - column 13, red
+ * 02 - column 13, blue
+ * 03 - column 13, green
+ * 04-06 - column 14
+ * 07-09 - column 15
+ * 0a-0c - column 16
+ * 0d-0f - column 17
+ * 10-12 - nothing (!!)
+ * 13-15 - column 11, blue, green, red (!!)
+ * 16-18 - column 10, blue, green, red
+ * 19 - column 12, blue
+ * 1a - column 12, green
+ * 1b - column 12, red
+
+ # Gray mode
+
+ See page 41: it goes from 0 to 63
+
+ * Memory 00 - fb
+ * Right Chip (CS1)
+   * decimal 30 - first one @ column 12 row 6, red
+   * blue
+   * green
+   * 33-35: column 13, row 6, red, blue, green
+   * ...
+   * column 17, row 6, rbg
+   * 3 nothing
+   * column 11, blue, green, red
+   * column 10, bgr
+   * 1 nothing
+   * column 12, red, blue, green
+
+
+
+
+
+
+
 # Implementation Notes
 
 * It is a two-cycle implementation where I output the clock in two parts
