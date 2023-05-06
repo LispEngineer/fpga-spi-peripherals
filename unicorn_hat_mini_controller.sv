@@ -169,6 +169,8 @@ initial begin: initial_display_mem
     for (int y = 0; y < NUM_ROWS; y++)
       display_mem[x][y] = '0;
   display_mem[0][0] = 3'b100;
+  display_mem[5][0] = 3'b010;
+  display_mem[10][0] = 3'b001;
   display_mem[0][1] = 3'b010;
   display_mem[0][2] = 3'b001;
   display_mem[0][3] = 3'b011;
@@ -179,7 +181,7 @@ end: initial_display_mem
 
 /*
         RED
-        LEFT                           || RIGHT (confirm these)
+        LEFT                           || RIGHT
         1b:3 18 | 01 04 07 0a 0d 10 13 || 1b 18 | 01 04 07 0a 0d 10
         1b:0 18 | 01 04 07 0a 0d 10 13 ||
         1b:2 18 | 01 04 07 0a 0d 10 13 ||
@@ -192,20 +194,21 @@ end: initial_display_mem
 
 // Map display memory to binary memory
 always_comb begin: display_memory_mapping
-  // Red, first row
   // binary_mem[loc][chip][bit] = display_mem[x][y][rgb]
+
+  // Red, first row
   // Left chip
-  binary_mem[8'h1b][0][3] = display_mem[0][0][2];
-  binary_mem[8'h18][0][3] = display_mem[1][0][2];
-  binary_mem[8'h01][0][3] = display_mem[2][0][2];
-  binary_mem[8'h04][0][3] = display_mem[3][0][2];
-  binary_mem[8'h07][0][3] = display_mem[4][0][2];
-  binary_mem[8'h0a][0][3] = display_mem[5][0][2];
-  binary_mem[8'h0d][0][3] = display_mem[6][0][2];
-  binary_mem[8'h10][0][3] = display_mem[7][0][2];
-  binary_mem[8'h13][0][3] = display_mem[8][0][2];
+  binary_mem[8'h1b][0][3] = display_mem[ 0][0][2];
+  binary_mem[8'h18][0][3] = display_mem[ 1][0][2];
+  binary_mem[8'h01][0][3] = display_mem[ 2][0][2];
+  binary_mem[8'h04][0][3] = display_mem[ 3][0][2];
+  binary_mem[8'h07][0][3] = display_mem[ 4][0][2];
+  binary_mem[8'h0a][0][3] = display_mem[ 5][0][2];
+  binary_mem[8'h0d][0][3] = display_mem[ 6][0][2];
+  binary_mem[8'h10][0][3] = display_mem[ 7][0][2];
+  binary_mem[8'h13][0][3] = display_mem[ 8][0][2];
   // Right Chip
-  binary_mem[8'h1b][1][3] = display_mem[9][0][2];
+  binary_mem[8'h1b][1][3] = display_mem[ 9][0][2];
   binary_mem[8'h18][1][3] = display_mem[10][0][2];
   binary_mem[8'h01][1][3] = display_mem[11][0][2];
   binary_mem[8'h04][1][3] = display_mem[12][0][2];
@@ -213,6 +216,49 @@ always_comb begin: display_memory_mapping
   binary_mem[8'h0a][1][3] = display_mem[14][0][2];
   binary_mem[8'h0d][1][3] = display_mem[15][0][2];
   binary_mem[8'h10][1][3] = display_mem[16][0][2];
+  // No 9th column on Right
+  // Green, first row
+  // Left chip
+  binary_mem[8'h1a][0][3] = display_mem[ 0][0][1];
+  binary_mem[8'h17][0][3] = display_mem[ 1][0][1];
+  binary_mem[8'h03][0][3] = display_mem[ 2][0][1];
+  binary_mem[8'h06][0][3] = display_mem[ 3][0][1];
+  binary_mem[8'h09][0][3] = display_mem[ 4][0][1];
+  binary_mem[8'h0c][0][3] = display_mem[ 5][0][1];
+  binary_mem[8'h0f][0][3] = display_mem[ 6][0][1];
+  binary_mem[8'h12][0][3] = display_mem[ 7][0][1];
+  binary_mem[8'h15][0][3] = display_mem[ 8][0][1];
+  // Right Chip
+  binary_mem[8'h1a][1][3] = display_mem[ 9][0][1];
+  binary_mem[8'h17][1][3] = display_mem[10][0][1];
+  binary_mem[8'h03][1][3] = display_mem[11][0][1];
+  binary_mem[8'h06][1][3] = display_mem[12][0][1];
+  binary_mem[8'h09][1][3] = display_mem[13][0][1];
+  binary_mem[8'h0c][1][3] = display_mem[14][0][1];
+  binary_mem[8'h0f][1][3] = display_mem[15][0][1];
+  binary_mem[8'h12][1][3] = display_mem[16][0][1];
+  // No 9th column on Right
+  // Blue, first row
+  // Left chip
+  binary_mem[8'h19][0][3] = display_mem[ 0][0][0];
+  binary_mem[8'h16][0][3] = display_mem[ 1][0][0];
+  binary_mem[8'h02][0][3] = display_mem[ 2][0][0];
+  binary_mem[8'h05][0][3] = display_mem[ 3][0][0];
+  binary_mem[8'h08][0][3] = display_mem[ 4][0][0];
+  binary_mem[8'h0b][0][3] = display_mem[ 5][0][0];
+  binary_mem[8'h0e][0][3] = display_mem[ 6][0][0];
+  binary_mem[8'h11][0][3] = display_mem[ 7][0][0];
+  binary_mem[8'h14][0][3] = display_mem[ 8][0][0];
+  // Right Chip
+  binary_mem[8'h19][1][3] = display_mem[ 9][0][0];
+  binary_mem[8'h16][1][3] = display_mem[10][0][0];
+  binary_mem[8'h02][1][3] = display_mem[11][0][0];
+  binary_mem[8'h05][1][3] = display_mem[12][0][0];
+  binary_mem[8'h08][1][3] = display_mem[13][0][0];
+  binary_mem[8'h0b][1][3] = display_mem[14][0][0];
+  binary_mem[8'h0e][1][3] = display_mem[15][0][0];
+  binary_mem[8'h11][1][3] = display_mem[16][0][0];
+  // No 9th column on Right
 end: display_memory_mapping
 
 
