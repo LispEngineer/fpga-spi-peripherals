@@ -98,10 +98,6 @@ end
 
 // Initialization. See README.md
 
-localparam INIT_LEN = 4;
-localparam LAST_INIT = INIT_LEN - 1;
-localparam INIT_WID = 6;
-
 /*
 * COM output control
   * 41 ff
@@ -121,6 +117,11 @@ localparam INIT_WID = 6;
   * 35 03
 */
 
+/*
+localparam INIT_LEN = 4;
+localparam LAST_INIT = INIT_LEN - 1;
+localparam INIT_WID = 6;
+
 logic [7:0] init [INIT_LEN][INIT_WID];
 
 initial begin
@@ -134,16 +135,20 @@ initial begin
   // Oscillator & display on
   init[3][0] = 8'd2; init[3][1] = 8'h35; init[3][2] = 8'h03; // System Control
 end
-
+*/
 
 
 typedef enum int unsigned {
   S_POWER_UP        = 0,
   S_SEND_COMMAND    = 1,
   S_AWAIT_COMMAND   = 2,
-  S_INIT            = 3,
-  S_IDLE            = 4
+  S_INIT_COM        = 3,
+  S_INIT_ROW        = 4,
+  S_INIT_BINARY     = 5,
+  S_INIT_ON         = 6,
+  S_IDLE            = 7
 } state_t;
+localparam state_t S_INIT_START = S_INIT_COM;
 
 state_t state = S_POWER_UP;
 state_t return_after_command;
@@ -165,12 +170,51 @@ always_ff @(posedge clk) begin: tm1638_main
     // Give the module a moment to power up
     // The datasheet may say a required startup time but I didn't quickly find it
     if (power_up_counter == 0) begin
-      state <= S_INIT;
+      state <= S_INIT_START;
       init_step <= '0;
     end else
       power_up_counter <= power_up_counter - 1'd1;
   end: pwr_up
 
+  ////////////////////////////////////////////////////////////////////////////////
+  // Initialization
+
+  S_INIT_COM: begin: do_init_com
+    next_out_count       <= (OUT_BYTES_SZ)'(2);
+    next_out_data[0]     <= 8'h41;
+    next_out_data[1]     <= 8'hff;
+    state                <= S_SEND_COMMAND;
+    return_after_command <= S_INIT_ROW;
+  end: do_init_com
+
+  S_INIT_ROW: begin: do_init_row
+    next_out_count       <= (OUT_BYTES_SZ)'(5);
+    next_out_data[0]     <= 8'h42;
+    next_out_data[1]     <= 8'hff;
+    next_out_data[2]     <= 8'hff;
+    next_out_data[3]     <= 8'hff;
+    next_out_data[4]     <= 8'hff;
+    state                <= S_SEND_COMMAND;
+    return_after_command <= S_INIT_BINARY;
+  end: do_init_row
+
+  S_INIT_BINARY: begin: do_init_binary
+    next_out_count       <= (OUT_BYTES_SZ)'(2);
+    next_out_data[0]     <= 8'h31;
+    next_out_data[1]     <= 8'h01;
+    state                <= S_SEND_COMMAND;
+    return_after_command <= S_INIT_ON;
+  end: do_init_binary
+
+  S_INIT_ON: begin: do_init_on
+    next_out_count       <= (OUT_BYTES_SZ)'(2);
+    next_out_data[0]     <= 8'h35;
+    next_out_data[1]     <= 8'h03;
+    state                <= S_SEND_COMMAND;
+    return_after_command <= S_IDLE;
+  end: do_init_on
+
+/*
   S_INIT: begin: do_init
     // Initialize from our initialization ROM
     next_out_count <= (OUT_BYTES_SZ)'(init[init_step][0]);
@@ -183,6 +227,7 @@ always_ff @(posedge clk) begin: tm1638_main
     else
       return_after_command <= S_INIT;
   end: do_init
+*/
 
   S_IDLE: begin end
 
