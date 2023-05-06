@@ -325,7 +325,7 @@ See Holtek HT16D35A Datasheet Rev 1.22
   * (Omitting any data output discussion)
 * Page 6: Timing diagram on the above timings
 * Page 8: Data transfers on the I2C-bus or SPI 3-wire serial bus
-  should be avoided for 1ms following a power-on to
+  should be avoided for *1ms* following a power-on to
   allow the reset initialisation operation to complete
 * Page 19-20: Command table
 * Page 60 for Initialization

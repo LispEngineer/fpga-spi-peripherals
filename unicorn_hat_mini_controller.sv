@@ -73,7 +73,7 @@ spi_3wire_controller #(
   .in_data(), .in_count('0) // Unused
 );
 
-
+/*
 // Initialization. See: https://github.com/pimoroni/unicornhatmini-python/blob/master/library/unicornhatmini/__init__.py
 
 localparam INIT_LEN = 8;
@@ -93,6 +93,46 @@ initial begin
   init[5][0] = 8'd2; init[5][1] = 8'h41; init[5][2] = 8'hFF; // Com Pin Control
   init[6][0] = 8'd5; init[6][1] = 8'h42; init[6][2] = 8'hFF; init[6][3] = 8'hFF; init[6][4] = 8'hFF; init[6][5] = 8'hFF; // Row Pin Control
   init[7][0] = 8'd2; init[7][1] = 8'h35; init[7][2] = 8'h03; // System Control
+end
+*/
+
+// Initialization. See README.md
+
+localparam INIT_LEN = 4;
+localparam LAST_INIT = INIT_LEN - 1;
+localparam INIT_WID = 6;
+
+/*
+* COM output control
+  * 41 ff
+* ROW output Control
+  * 42 ff ff ff ff
+* Binary/Gray mode
+  * 31 01 (binary mode, for now)
+* Clear memory (binary) - it starts up with random contents
+  80 00 00 00 00 00
+  80 04 00 00 00 00
+  80 08 00 00 00 00
+  80 0b 00 00 00 00
+  80 10 00 00 00 00
+  80 14 00 00 00 00
+  80 18 00 00 00 00
+* System control - oscillator on & display on
+  * 35 03
+*/
+
+logic [7:0] init [INIT_LEN][INIT_WID];
+
+initial begin
+  // Maybe: soft reset?
+  // Maybe: Oscillator & display off
+  // COM/ROW output controls
+  init[0][0] = 8'd2; init[0][1] = 8'h41; init[0][2] = 8'hFF; // Com Pin Control
+  init[1][0] = 8'd5; init[1][1] = 8'h42; init[1][2] = 8'hFF; init[1][3] = 8'hFF; init[1][4] = 8'hFF; init[1][5] = 8'hFF; // Row Pin Control
+  // Binary/Gray mode
+  init[2][0] = 8'd2; init[2][1] = 8'h31; init[2][2] = 8'h01; // Binary mode
+  // Oscillator & display on
+  init[3][0] = 8'd2; init[3][1] = 8'h35; init[3][2] = 8'h03; // System Control
 end
 
 

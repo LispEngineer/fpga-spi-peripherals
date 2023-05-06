@@ -230,12 +230,10 @@ set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_signal_integrity
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_boundary_scan
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
-set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH test_spi -section_id eda_simulation
+set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH unicorn_hat_mini -section_id eda_simulation
 set_global_assignment -name EDA_TEST_BENCH_NAME test_spi -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id test_spi
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_spi -section_id test_spi
-set_global_assignment -name EDA_TEST_BENCH_FILE spi_controller_ht16d35a.sv -section_id test_spi -hdl_version SystemVerilog_2005
-set_global_assignment -name EDA_TEST_BENCH_FILE test_spi.sv -section_id test_spi -hdl_version SystemVerilog_2005
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
@@ -384,6 +382,7 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[33]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[34]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[35]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO[21]
+set_global_assignment -name SYSTEMVERILOG_FILE test_uhmc.sv
 set_global_assignment -name SYSTEMVERILOG_FILE unicorn_hat_mini_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE qyf_tm1638_demo.sv
 set_global_assignment -name SYSTEMVERILOG_FILE qyf_tm1638_controller.sv
@@ -396,4 +395,12 @@ set_global_assignment -name SYSTEMVERILOG_FILE tm1638_generic.sv
 set_global_assignment -name SYSTEMVERILOG_FILE seven_segment.sv
 set_global_assignment -name SYSTEMVERILOG_FILE test_spi.sv
 set_global_assignment -name QIP_FILE altiobuf_dio.qip
+set_global_assignment -name EDA_TEST_BENCH_FILE spi_controller_ht16d35a.sv -section_id test_spi -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE test_spi.sv -section_id test_spi -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_NAME unicorn_hat_mini -section_id eda_simulation
+set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id unicorn_hat_mini
+set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_uhmc -section_id unicorn_hat_mini
+set_global_assignment -name EDA_TEST_BENCH_FILE spi_3wire_controller.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE test_uhmc.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE unicorn_hat_mini_controller.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
