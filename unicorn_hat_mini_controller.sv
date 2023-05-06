@@ -33,6 +33,8 @@ module unicorn_hat_mini_controller #(
   output logic sck,      // Serial Clock
   output logic sdo,      // Previously MOSI
   output logic [1:0] cs // Chip select (previously SS) - active low
+
+  // TODO: Add brightness
 );
 
 localparam NUM_SELECTS = 2;
@@ -47,7 +49,7 @@ logic [OUT_BYTES_SZ-1:0] out_count;
 
 logic [7:0] next_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] next_out_count;
-
+logic [NUM_SELECTS-1:0] next_cs;
 
 
 spi_3wire_controller #(
@@ -73,28 +75,6 @@ spi_3wire_controller #(
   .in_data(), .in_count('0) // Unused
 );
 
-/*
-// Initialization. See: https://github.com/pimoroni/unicornhatmini-python/blob/master/library/unicornhatmini/__init__.py
-
-localparam INIT_LEN = 8;
-localparam LAST_INIT = INIT_LEN - 1;
-localparam INIT_WID = 6;
-
-logic [7:0] init [INIT_LEN][INIT_WID];
-
-initial begin
-  // Length, then the actual data
-  init[0][0] = 8'd1; init[0][1] = 8'hCC; // Soft reset
-  init[1][0] = 8'd2; init[1][1] = 8'h37; init[1][2] = 8'h01; // Global brigthness
-  init[2][0] = 8'd2; init[2][1] = 8'h20; init[2][2] = 8'h00; // Scroll control
-  init[3][0] = 8'd2; init[3][1] = 8'h35; init[3][2] = 8'h00; // System control
-  // Write display...
-  init[4][0] = 8'd5; init[4][1] = 8'h80; init[4][2] = 8'h00; init[4][3] = 8'hFF; init[4][4] = 8'hFF; init[4][5] = 8'hFF; // Write Display
-  init[5][0] = 8'd2; init[5][1] = 8'h41; init[5][2] = 8'hFF; // Com Pin Control
-  init[6][0] = 8'd5; init[6][1] = 8'h42; init[6][2] = 8'hFF; init[6][3] = 8'hFF; init[6][4] = 8'hFF; init[6][5] = 8'hFF; // Row Pin Control
-  init[7][0] = 8'd2; init[7][1] = 8'h35; init[7][2] = 8'h03; // System Control
-end
-*/
 
 // Initialization. See README.md
 
@@ -117,26 +97,6 @@ end
   * 35 03
 */
 
-/*
-localparam INIT_LEN = 4;
-localparam LAST_INIT = INIT_LEN - 1;
-localparam INIT_WID = 6;
-
-logic [7:0] init [INIT_LEN][INIT_WID];
-
-initial begin
-  // Maybe: soft reset?
-  // Maybe: Oscillator & display off
-  // COM/ROW output controls
-  init[0][0] = 8'd2; init[0][1] = 8'h41; init[0][2] = 8'hFF; // Com Pin Control
-  init[1][0] = 8'd5; init[1][1] = 8'h42; init[1][2] = 8'hFF; init[1][3] = 8'hFF; init[1][4] = 8'hFF; init[1][5] = 8'hFF; // Row Pin Control
-  // Binary/Gray mode
-  init[2][0] = 8'd2; init[2][1] = 8'h31; init[2][2] = 8'h01; // Binary mode
-  // Oscillator & display on
-  init[3][0] = 8'd2; init[3][1] = 8'h35; init[3][2] = 8'h03; // System Control
-end
-*/
-
 
 typedef enum int unsigned {
   S_POWER_UP        = 0,
@@ -145,8 +105,9 @@ typedef enum int unsigned {
   S_INIT_COM        = 3,
   S_INIT_ROW        = 4,
   S_INIT_BINARY     = 5,
-  S_INIT_ON         = 6,
-  S_IDLE            = 7
+  S_INIT_CLEAR      = 6,
+  S_INIT_ON         = 7,
+  S_IDLE            = 8
 } state_t;
 localparam state_t S_INIT_START = S_INIT_COM;
 
@@ -156,6 +117,7 @@ logic send_busy_seen;
 logic [2:0] xmit_4_count;
 logic [31:0] power_up_counter = POWER_UP_START;
 logic [4:0] init_step; // FIXME: Size
+localparam LAST_CLEAR = 5'd6;
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -183,6 +145,7 @@ always_ff @(posedge clk) begin: tm1638_main
     next_out_count       <= (OUT_BYTES_SZ)'(2);
     next_out_data[0]     <= 8'h41;
     next_out_data[1]     <= 8'hff;
+    next_cs              <= '1; // Both chips
     state                <= S_SEND_COMMAND;
     return_after_command <= S_INIT_ROW;
   end: do_init_com
@@ -194,6 +157,7 @@ always_ff @(posedge clk) begin: tm1638_main
     next_out_data[2]     <= 8'hff;
     next_out_data[3]     <= 8'hff;
     next_out_data[4]     <= 8'hff;
+    next_cs              <= '1; // Both chips
     state                <= S_SEND_COMMAND;
     return_after_command <= S_INIT_BINARY;
   end: do_init_row
@@ -202,32 +166,38 @@ always_ff @(posedge clk) begin: tm1638_main
     next_out_count       <= (OUT_BYTES_SZ)'(2);
     next_out_data[0]     <= 8'h31;
     next_out_data[1]     <= 8'h01;
+    next_cs              <= '1; // Both chips
     state                <= S_SEND_COMMAND;
-    return_after_command <= S_INIT_ON;
+    return_after_command <= S_INIT_CLEAR;
+    init_step            <= '0;
   end: do_init_binary
+
+  S_INIT_CLEAR: begin: do_init_clear
+    // Binary data has 28 bytes to clear
+    next_out_count       <= (OUT_BYTES_SZ)'(6);
+    next_out_data[0]     <= 8'h80;
+    next_out_data[1]     <= 8'(init_step) << 2;
+    next_out_data[2]     <= 8'h00;
+    next_out_data[3]     <= 8'h00;
+    next_out_data[4]     <= 8'h00;
+    next_out_data[5]     <= 8'h00;
+    next_cs              <= '1; // Both chips
+    state                <= S_SEND_COMMAND;
+    init_step            <= init_step + 1'd1;
+    if (init_step == LAST_CLEAR)
+      return_after_command <= S_INIT_ON;
+    else
+      return_after_command <= S_INIT_CLEAR;
+  end: do_init_clear
 
   S_INIT_ON: begin: do_init_on
     next_out_count       <= (OUT_BYTES_SZ)'(2);
     next_out_data[0]     <= 8'h35;
     next_out_data[1]     <= 8'h03;
+    next_cs              <= '1; // Both chips
     state                <= S_SEND_COMMAND;
     return_after_command <= S_IDLE;
   end: do_init_on
-
-/*
-  S_INIT: begin: do_init
-    // Initialize from our initialization ROM
-    next_out_count <= (OUT_BYTES_SZ)'(init[init_step][0]);
-    for (int i = 1; i < INIT_WID; i++)
-      next_out_data[i - 1] <= init[init_step][i];
-    state <= S_SEND_COMMAND;
-    init_step <= init_step + 1'd1;
-    if (init_step == LAST_INIT)
-      return_after_command <= S_IDLE;
-    else
-      return_after_command <= S_INIT;
-  end: do_init
-*/
 
   S_IDLE: begin end
 
@@ -243,7 +213,7 @@ always_ff @(posedge clk) begin: tm1638_main
     end else begin
       out_data       <= next_out_data;
       out_count      <= next_out_count;
-      in_cs          <= 2'b01; // FIXME: Just the first chip for now
+      in_cs          <= next_cs;
       activate       <= '1;
       state          <= S_AWAIT_COMMAND;
       send_busy_seen <= '0;
