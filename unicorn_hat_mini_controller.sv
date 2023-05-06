@@ -138,7 +138,7 @@ logic chip_num;
 // Note: If you don't initialize everything, it won't synthesize,
 // despite the warnings saying it is assigning default value!!
 // (This is probably what broke my old ROM based initialization routine.)
-
+/*
 initial begin
   for (int c = 0; c < NUM_SELECTS; c++)
     for (int i = 0; i < BINARY_MEM_LEN; i++)
@@ -150,13 +150,102 @@ initial begin
   binary_mem[ 6][1] = 8'h10;
   binary_mem[26][1] = 8'h08;
 end
+*/
 
+initial begin
+  for (int c = 0; c < NUM_SELECTS; c++)
+    for (int i = 0; i < BINARY_MEM_LEN; i++)
+      binary_mem[i][c] = 8'h00;
+end
 
 localparam NUM_ROWS = 7;
 localparam NUM_COLS = 17;
-localparam NUM_COLORS = 3;
+localparam NUM_COLORS = 3; // R, G, B [2:0]
+
+logic [2:0] display_mem[NUM_COLS][NUM_ROWS]; // display_mem[x][y]
+
+initial begin: initial_display_mem
+  for (int x = 0; x < NUM_COLS; x++)
+    for (int y = 0; y < NUM_ROWS; y++)
+      display_mem[x][y] = '0;
+  display_mem[0][0] = 3'b100;
+  display_mem[0][1] = 3'b010;
+  display_mem[0][2] = 3'b001;
+  display_mem[0][3] = 3'b011;
+  display_mem[0][4] = 3'b101;
+  display_mem[0][5] = 3'b110;
+  display_mem[0][6] = 3'b111;
+end: initial_display_mem
+
+/*
+        RED
+        LEFT                           || RIGHT (confirm these)
+        1b:3 18 | 01 04 07 0a 0d 10 13 || 1b 18 | 01 04 07 0a 0d 10
+        1b:0 18 | 01 04 07 0a 0d 10 13 ||
+        1b:2 18 | 01 04 07 0a 0d 10 13 ||
+        1b:1 18 | 01 04 07 0a 0d 10 13 ||
+        1b:4 18 | 01 04 07 0a 0d 10 13 ||
+        1b:6 18 | 01 04 07 0a 0d 10 13 ||
+        1b:5 18 | 01 04 07 0a 0d 10 13 ||
+         1    2 |  3  4  5  6  7  8  9 || 10 11 | 12 13 14 15 16 17
+*/
+
+// Map display memory to binary memory
+always_comb begin: display_memory_mapping
+  // Red, first row
+  // binary_mem[loc][chip][bit] = display_mem[x][y][rgb]
+  // Left chip
+  binary_mem[8'h1b][0][3] = display_mem[0][0][2];
+  binary_mem[8'h18][0][3] = display_mem[1][0][2];
+  binary_mem[8'h01][0][3] = display_mem[2][0][2];
+  binary_mem[8'h04][0][3] = display_mem[3][0][2];
+  binary_mem[8'h07][0][3] = display_mem[4][0][2];
+  binary_mem[8'h0a][0][3] = display_mem[5][0][2];
+  binary_mem[8'h0d][0][3] = display_mem[6][0][2];
+  binary_mem[8'h10][0][3] = display_mem[7][0][2];
+  binary_mem[8'h13][0][3] = display_mem[8][0][2];
+  // Right Chip
+  binary_mem[8'h1b][1][3] = display_mem[9][0][2];
+  binary_mem[8'h18][1][3] = display_mem[10][0][2];
+  binary_mem[8'h01][1][3] = display_mem[11][0][2];
+  binary_mem[8'h04][1][3] = display_mem[12][0][2];
+  binary_mem[8'h07][1][3] = display_mem[13][0][2];
+  binary_mem[8'h0a][1][3] = display_mem[14][0][2];
+  binary_mem[8'h0d][1][3] = display_mem[15][0][2];
+  binary_mem[8'h10][1][3] = display_mem[16][0][2];
+end: display_memory_mapping
 
 
+
+// Make a nice pattern rotation in display memory space
+
+localparam STEP_DELAY = 32'd5_000_000;
+logic [31:0] step_counter = STEP_DELAY;
+
+always_ff @(posedge clk) begin
+
+  if (!reset) begin
+
+    if (step_counter == 0) begin
+
+      step_counter <= STEP_DELAY;
+
+      for (int x = 0; x < NUM_COLS; x++) begin: forx
+        for (int y = 0; y < NUM_ROWS; y++) begin: fory
+          display_mem[x][y] <= display_mem[x == 0 ? NUM_COLS - 1 : x - 1][y];
+        end: fory
+      end: forx
+
+    end else begin
+      step_counter <= step_counter - 1'd1;
+    end
+  end
+end
+
+
+
+
+/*
 localparam STEP_DELAY = 32'd5_000_000;
 logic [31:0] step_counter = STEP_DELAY;
 
@@ -178,11 +267,9 @@ always_ff @(posedge clk) begin
     end else begin
       step_counter <= step_counter - 1'd1;
     end
-
   end
-
 end
-
+*/
 
 
 

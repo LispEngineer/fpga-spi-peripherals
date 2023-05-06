@@ -433,6 +433,19 @@ to get access to the "COM" port.
  * 1a - column 12, green
  * 1b - column 12, red
 
+ So for the display: binary_mem:bit
+
+        RED
+        LEFT                           || RIGHT
+        1b:3 18 | 01 04 07 0a 0d 10 13 || 1b 18 | 01 04 07 0a 0d 10
+        1b:0 18 | 01 04 07 0a 0d 10 13 ||
+        1b:2 18 | 01 04 07 0a 0d 10 13 ||
+        1b:1 18 | 01 04 07 0a 0d 10 13 ||
+        1b:4 18 | 01 04 07 0a 0d 10 13 ||
+        1b:6 18 | 01 04 07 0a 0d 10 13 ||
+        1b:5 18 | 01 04 07 0a 0d 10 13 ||
+         1    2 |  3  4  5  6  7  8  9 || 10 11 | 12 13 14 15 16 17
+
  # Gray mode
 
  See page 41: it goes from 0 to 63
