@@ -19,7 +19,7 @@ module unicorn_hat_mini_controller #(
   parameter CLK_2us = 100, // 2µs at current clock rate (50MHz = 20ns => 100)
 
   // How long to wait before we start using the LED&KEY in clock cycles?
-  parameter POWER_UP_START = 32'd2_000_000, // 2/50ths of a second or 40ms
+  parameter POWER_UP_START = 32'd10_000_000, // 2/50ths of a second or 40ms
   // DELAY_START of 460_000 causes the state machine to cycle about 107 times a second.
   // DELAY_START of 230_000 causes the state machine to cycle about 210 times a second.
   // The TM1638 only scans the keypad once every 4.7ms or about 212 times a second.
@@ -36,7 +36,7 @@ module unicorn_hat_mini_controller #(
 );
 
 localparam NUM_SELECTS = 2;
-localparam OUT_BYTES = 8;
+localparam OUT_BYTES = 6;
 localparam OUT_BYTES_SZ = $clog2(OUT_BYTES + 1);
 
 logic busy;
@@ -173,7 +173,7 @@ always_ff @(posedge clk) begin: tm1638_main
 
   S_INIT: begin: do_init
     // Initialize from our initialization ROM
-    next_out_count <= init[init_step][0];
+    next_out_count <= (OUT_BYTES_SZ)'(init[init_step][0]);
     for (int i = 1; i < INIT_WID; i++)
       next_out_data[i - 1] <= init[init_step][i];
     state <= S_SEND_COMMAND;

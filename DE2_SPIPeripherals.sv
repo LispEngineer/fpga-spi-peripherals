@@ -126,7 +126,9 @@ assign GPIO[28] = sdo;
 
 assign LEDG[3:0] = {sdo, sck, cs[1], cs[0]};
 
-unicorn_hat_mini_controller uhm_inst (
+unicorn_hat_mini_controller #(
+  .CLK_DIV(32)
+) uhm_inst (
   .clk(CLOCK_50),
   .reset,
 
