@@ -124,8 +124,10 @@ localparam LAST_CLEAR = 5'd6;
 localparam BINARY_MEM_LEN = 28;
 localparam BINARY_MEM_SZ = $clog2(BINARY_MEM_LEN + 1);
 localparam LAST_BINARY_MEM_POS = 24; // If we update by 4 bytes each time, this is the last update
-logic [7:0] binary_mem [28];
+// We have two chips each with its own memory, so...
+logic [7:0] binary_mem [28][NUM_SELECTS];
 logic [BINARY_MEM_SZ - 1:0] binary_mem_pos;
+logic chip_num;
 
 // FIXME: Combine init_step & binary_mem_pos?
 
@@ -138,13 +140,22 @@ logic [BINARY_MEM_SZ - 1:0] binary_mem_pos;
 // (This is probably what broke my old ROM based initialization routine.)
 
 initial begin
-  for (int i = 0; i < BINARY_MEM_LEN; i++)
-    binary_mem[i] = 8'h00;
-  binary_mem[1] = 8'hFF;
-  binary_mem[4] = 8'hff;
-  binary_mem[17] = 8'h40;
-  binary_mem[23] = 8'h04;
+  for (int c = 0; c < NUM_SELECTS; c++)
+    for (int i = 0; i < BINARY_MEM_LEN; i++)
+      binary_mem[i][c] = 8'h00;
+  binary_mem[ 1][0] = 8'hFF;
+  binary_mem[17][0] = 8'h40;
+  binary_mem[23][0] = 8'h04;
+  binary_mem[19][1] = 8'hFF;
+  binary_mem[ 6][1] = 8'h10;
+  binary_mem[26][1] = 8'h08;
 end
+
+
+localparam NUM_ROWS = 7;
+localparam NUM_COLS = 17;
+localparam NUM_COLORS = 3;
+
 
 localparam STEP_DELAY = 32'd5_000_000;
 logic [31:0] step_counter = STEP_DELAY;
@@ -157,10 +168,12 @@ always_ff @(posedge clk) begin
 
       step_counter <= STEP_DELAY;
 
-      for (int i = 0; i < BINARY_MEM_LEN; i++) begin: for1
-        binary_mem[i][7:1] <= binary_mem[i][6:0];
-        binary_mem[i][0] <= binary_mem[i == 0 ? BINARY_MEM_LEN - 1 : i - 1][7];
-      end: for1
+      for (int c = 0; c < NUM_SELECTS; c++) begin: forc
+        for (int i = 0; i < BINARY_MEM_LEN; i++) begin: for1
+          binary_mem[i][c][7:1] <= binary_mem[i][c][6:0];
+          binary_mem[i][c][0] <= binary_mem[i == 0 ? BINARY_MEM_LEN - 1 : i - 1][c][7];
+        end: for1
+      end: forc
 
     end else begin
       step_counter <= step_counter - 1'd1;
@@ -263,16 +276,22 @@ always_ff @(posedge clk) begin: tm1638_main
     next_out_count       <= (OUT_BYTES_SZ)'(6);
     next_out_data[0]     <= 8'h80;
     next_out_data[1]     <= 8'(binary_mem_pos);
-    next_out_data[2]     <= binary_mem[binary_mem_pos + 0];
-    next_out_data[3]     <= binary_mem[binary_mem_pos + 1];
-    next_out_data[4]     <= binary_mem[binary_mem_pos + 2];
-    next_out_data[5]     <= binary_mem[binary_mem_pos + 3];
-    next_cs              <= '1; // Both chips
+    next_out_data[2]     <= binary_mem[binary_mem_pos + 0][chip_num];
+    next_out_data[3]     <= binary_mem[binary_mem_pos + 1][chip_num];
+    next_out_data[4]     <= binary_mem[binary_mem_pos + 2][chip_num];
+    next_out_data[5]     <= binary_mem[binary_mem_pos + 3][chip_num];
+    next_cs              <= chip_num ? 2'b10 : 2'b01; // Chip 0 == left half
     state                <= S_SEND_COMMAND;
     binary_mem_pos       <= binary_mem_pos + (BINARY_MEM_SZ)'(4);
     if (binary_mem_pos >= LAST_BINARY_MEM_POS) begin
-      return_after_command <= S_DELAY;
-      power_up_counter <= DELAY_START;
+      if (chip_num) begin
+        return_after_command <= S_DELAY;
+        power_up_counter <= DELAY_START;
+      end else begin
+        chip_num <= '1; // Do the other chip
+        binary_mem_pos <= '0;
+        return_after_command <= S_REFRESH_MEM;
+      end
     end else begin
       return_after_command <= S_REFRESH_MEM;
     end
@@ -284,6 +303,7 @@ always_ff @(posedge clk) begin: tm1638_main
     if (power_up_counter == 0) begin
       state <= S_REFRESH_MEM;
       binary_mem_pos <= '0;
+      chip_num <= '0;
     end else
       power_up_counter <= power_up_counter - 1'd1;
   end: do_delay
