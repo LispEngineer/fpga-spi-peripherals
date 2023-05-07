@@ -26,6 +26,7 @@ Pimoroni Unicorn Hat Mini.
 * Unicorn Hat Mini
   * Brightness for binary mode
   * Grayscale mode
+* Specify Solderpad Hardware License 2.1 once I figure out how
 
 ## Modules
 
@@ -253,6 +254,17 @@ All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
 
 # Pimoroni Unicorn Hat Mini for FPGA
 
+# Implementation notes
+
+* 3.3V and 5V power (and Ground) required
+* SCK & SDO pins required
+* 2 CS pins required for each half of the display
+* --> Total 7 pins required including power
+
+
+
+
+## References
 
 Unicorn Hat Mini References:
 * [Pimoroni product page](https://shop.pimoroni.com/en-us/products/unicorn-hat-mini)
@@ -396,7 +408,7 @@ page 61
 
 ...then repeatedly send 28 bytes of memory.
 
-# Reverse engineering UHM
+## Reverse engineering UHM
 
 Used a [SPIDriver](https://spidriver.com/)
 to test much of this out. Note that the SPIDriver
@@ -406,7 +418,7 @@ to get access to the "COM" port.
 * CS0 = left half
 * CS1 = right half
 
-## Binary mode
+### Binary mode
 
 * Memory 00-1b = 28 bytes (00-27 decimal)
 * Mapping: for CS0/CE0 (left side chip)
@@ -461,9 +473,11 @@ to get access to the "COM" port.
         1b:5 18 | 01 04 07 0a 0d 10 13 ||
          1    2 |  3  4  5  6  7  8  9 || 10 11 | 12 13 14 15 16 17
 
- # Gray mode
+ ### Gray mode
 
  See page 41: it goes from 0 to 63
+
+ (This is very incomplete)
 
  * Memory 00 - fb
  * Right Chip (CS1)
@@ -483,9 +497,10 @@ to get access to the "COM" port.
 
 
 
+--------------------------------------------------------------------------------------------------------
 
 
-# Implementation Notes
+# SPI Implementation Notes
 
 * It is a two-cycle implementation where I output the clock in two parts
   as opposed to the four parts I used in my earlier I²C implementation.
@@ -501,4 +516,251 @@ to get access to the "COM" port.
 * Are the two HT16D35A chips wired in sync mode? (page 3, SYNC pin)
 
 --------------------------------------------------------------------------------------------------------
+
+
+
+# ILI9488 480x320 LCD Display Module
+
+[Amazon Product Page](https://www.amazon.com/dp/B08C7NPQZR)
+* 3.5" display
+* Pins for touch screen but apparently no touch screen (which is fine)
+* Full size SD card reader with unpopulated header and 4-wire SPI interface
+  * Presumably uses the power/ground from the LCD pins
+
+[Datasheet](https://focuslcds.com/content/ILI9488.pdf) - also in datasheets director
+* Version V100, ILI9488_IDT_V100_20121128
+
+References:
+* [GitHub ILI9488](https://github.com/topics/ili9488)
+* [Espressif](https://components.espressif.com/components/atanisoft/esp_lcd_ili9488)
+  * [GitHub](https://github.com/atanisoft/esp_lcd_ili9488)
+    * [Initialization](https://github.com/atanisoft/esp_lcd_ili9488/blob/main/esp_lcd_ili9488.c#L114)
+      `panel_ili9488_init`
+* [TinyDRM ILI9488 driver on GitHub](https://github.com/birdtechstep/tinydrm/blob/master/ili9488.c)
+* [TFT_eSPI on GitHub](https://github.com/Bodmer/TFT_eSPI)
+  * [Initialization](https://github.com/Bodmer/TFT_eSPI/blob/master/TFT_Drivers/ILI9488_Init.h)
+
+
+## Reverse engineering
+
+* Section 3.2.1: System Interface `MIPI-DBI Type C` operating mode presumably (page 20)
+  * Not sure if Option1 or Option3, but presumably Option3 for 4-line since there is SDO and SDI
+  * IM[0:2] == 111
+* Section 4.2: `DBI Type C Serial Interface` 
+  * D/CX
+  * CSX L
+  * SCL low to high
+  * 3-line SPI:
+    * CSX
+    * SCL
+    * SDA
+  * 4-line SPI:
+    * D/CX
+    * CSX
+    * SCL
+    * SDA
+  * SCL can be stopped when no communication is necessary
+  * This seems to mean that it always is 3-wire SPI mode (i.e., SDI/SDO?)
+  * MSB first
+  * 4-line Serial Protocol has "dummy clock cycles" sometimes for reads (???)
+    * See page 47
+* Section 4.7: Display Data Format
+  * 3 bits per pixel or 18 bits per pixel
+  * See 4.7.2 (p121) for the 3 formats: 1/1/1, 5/6/5, 6/6/6
+    * No example given for 5/6/5, which might be faster as it takes only two bytes per
+      pixel (16 bits)
+  * See 4.7.2.2 for 18-bit on 4-line SPI
+  * See 4.7.2.1 for 1 bit per pixel
+  * D/CX are always 1 (read at the LSB)
+* Section 17.4.2-3 Timings for SPI (page 331-332)
+  * Use 17.4.3 DBI Type C Option 3 (4-Line SPI System)
+  * tCHW = 40ns - Chip Select high pulse width
+  * tWC = Serial clock speed for writes = 50ns
+    * [20 MHz](https://www.unitjuggler.com/convert-frequency-from-ns(p)-to-MHz.html?val=50)
+    * 50MHz system clock -> CLK_DIV 2 would give us 25MHz of CLK_DIV 4 would give us 12.5MHz
+    * Might need to use a PLL to get 80MHz and CLK_DIV of 4 to maximize throughput
+  * tRC = Serial clock speed for reads = 150ns (!!! Different read/write max speeds !!!)
+    * 6.67 MHz
+  * D/CX setup & hold time = 10ns
+  * SDA setup & hold time = 10ns
+  * SDO access time from clock low = 10-50ns
+  * SDO output disable time = 15-50ns (not shown on the timing diagram)
+* Section 5 (page 140): Command list
+* Section 13 (page 306): Reset & Registers
+* Display memory writing
+  * See flow-chart on p176
+  * CASET (0x2A): SC, EC
+  * PASET (0x2B): SP, EP
+  * RAMWR (0x2C): Image data
+
+Pins from Datasheet:
+* `RESX` is low active reset - presumably this needs to be high
+  * `RESET` on the back?
+* `CSX` - Chip select (usual SPI thing) - low active - DBI Type B
+* `D/CX` - For DBI Type B
+* `WRX/SCL` - SCL for serial clock for DBI Type C
+  * `SCK` on the back?
+* `SDA`- SPI SDI for us, or DIO for 3-wire (which is not us)
+* `SDO` - SPI SDO
+
+
+## SPI Driver
+
+* Reset - 3.3V (tie it high)
+* A - `DC/RS` on board, seems to be `D/CX` in data sheet
+* B - `LED` (seems to turn backlight on?)
+
+`spicl` examples
+* .\spicl COM3 s a 0 w 0x04 a 1 r 4 u
+  * 0x2a,0x40,0x33,0x00
+  * Command: Read display identification information
+* .\spicl COM3 s a 0 w 0x09 a 1 r 5 u
+  * 0x00,0x30,0x80,0x00,0x00
+  * Command: Read Display Status
+* .\spicl COM3 s w 0x01 u
+  * .\spicl COM3 s a 0 w 0x01 a 1 u
+  * Soft reset
+
+[Initialization from GitHub](https://github.com/Bodmer/TFT_eSPI/blob/master/TFT_Drivers/ILI9488_Init.h)
+
+```
+(did not set positive/negative gamma control)
+PS:31 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xC0 a 1 w 0x17,0x15 u
+PS:32 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xC1 a 1 w 0x41 u
+PS:33 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xC5 a 1 w 0x00,0x12,0x80 u
+PS:34 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x36 a 1 w 0x48 u
+PS:35 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x3A a 1 w 0x66 u
+PS:36 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB0 a 1 w 0x00 u
+PS:37 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB1 a 1 w 0xA0 u
+PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 a 1 w 0x02 u
+PS:39 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB6 a 1 w 0x02,0x02,0x3B u
+PS:40 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB7 a 1 w 0xC6 u
+PS:41 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xF7 a 1 w 0xA8,0x51,0x2c,0x82 u
+PS:42 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x11 u
+(exit sleep, 120 delay)
+PS:43 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x29 u
+(display on, 25 delay)
+```
+... and the display turned on!
+
+It seems the initial display memory was a uniform gray color.
+
+What is the MADCTL D5 ? Column and page reversed?
+* PS:57 C:\Program Files (x86)\Excamera Labs\SPIDriver> # Read MADCTL
+* PS:58 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x0B a 1 r 2 u
+* 0x48 (DUMMY),0x00
+* Note: 00 is the default (page 158)
+* So D5 = 0 by default and per this read
+
+
+What is the display status? Command 0x09 section 5.2.5 page 153:
+* .\spicl COM3 s a 0 w 0x09 a 1 r 5 u
+* 0xd2,0x31,0x82,0x00,0x00
+* There is a dummy bit at the front we need to ignore, so bit shift this one:
+  * See page 47
+  * Dummy 1st parameter doesn't seem to apply
+* 110100100011000110000010000000000 -> 10100100011000110000010000000000
+*  10100100011000110000010000000000 -> 
+* 1010_0100__0110_0011__0000_0100__0000_0000: 31:0
+* 31: Booster on
+* Row address order Top to bottom
+* Column address order right to left
+* row/column exchange: normal
+* _
+* Vertical refresh
+* BGR ???
+* Horiz refresh
+* (there is no D24)
+* __
+* (there is no D23)
+* 22-20: 110: 18 bit/pix
+* _
+* idle off
+* partial off
+* sleep OUT
+* Display normal mode
+* __
+* 15: Vertical scroll of
+* (no 14)
+* inversion off
+* (no 12)
+* _
+* (no 11)
+* 10: display on
+* 9: Tear effect line off
+* 8-6: Gamma curve selection
+* __
+* 5: Tearing effect line mode 1
+
+
+
+Let's see if we can get something on the display:
+* 480 = 1E0 (This is the page address, it seems)
+* 320 = 140 (This is the column address, it seems)
+
+
+```
+PS:64 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2A a 1 w 0x00,0x00,0x01,0x3F u
+PS:65 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2B a 1 w 0x00,0x00,0x01,0xDF u
+PS:66 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2C a 1 w 0xFF,0xFF,0xFF u
+```
+
+* This draws the top right most pixel and then starts scanning down
+* It always resets the drawing at the start coordinates provided (very inconvenient)
+* Try the "Memory Write Continue" command 0x3C (5.2.35, page 201)
+  * That worked
+
+* So, to write to memory, one time set the start column & start page
+* Then start writing with the 0x2C command
+* and continue writing with 0x3C command if you don't write everything all at once
+
+
+
+
+
+* Note: The first byte has to have the `DC/RS` pin low, the rest have to have it high
+  * This implies we are using the 4-pin SPI mode
+  * This means we need a new SPI driver than the one we're currently using
+
+
+### SPI Driver Reading is Odd
+
+```
+PS:171 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x04 a 1 r 4 u
+0x2a,0x40,0x33,0x00
+PS:172 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xda a 1 r 2 u
+0x54,0x00
+PS:173 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xdb a 1 r 2 u
+0x80,0x00
+PS:174 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xdc a 1 r 2 u
+0x66,0x00
+```
+
+The documentation shows that the 1st parameter is "dummy data" but shows the expected values
+for the second parameter to be 54,80,66.
+
+This is telling me that there is no "dummy read" going on in the SDI(MISO) pins for the 8-bit
+reads.
+
+Page 47 shows a dummy-bit for the 24/32-bit reads though
+
+The first and the last 3 should show the same ID1-3
+
+```
+2a4033 0010_1010__0100_0000__0011_0011__00...
+548066 0110_0100__1000_0000__0110_0110
+
+       v--- Dummy bit
+2a4033 001010100100000000110011
+548066  010101001000000001100110
+```
+
+So it definitely is working with SPIDriver.
+
+TODO: Add support for skipping a dummy bit in a read input (?!).
+
+`RDDST` command 0x09 (page 153) also seems to get this dummy bit, but not
+the "dummy parameter" that is shown.
+
+
 
