@@ -527,8 +527,15 @@ to get access to the "COM" port.
 * Full size SD card reader with unpopulated header and 4-wire SPI interface
   * Presumably uses the power/ground from the LCD pins
 
-[Datasheet](https://focuslcds.com/content/ILI9488.pdf) - also in datasheets director
+[Board Site](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
+
+[Driver Chip Datasheet](https://focuslcds.com/content/ILI9488.pdf) - also in datasheets director
 * Version V100, ILI9488_IDT_V100_20121128
+
+[Module Datasheet](http://www.lcdwiki.com/res/MSP3520/3.5inch_SPI_Module_MSP3520_User_Manual_EN.pdf)
+
+[Module Schematic](http://www.lcdwiki.com/res/MSP3520/3.5%E5%AF%B8SPI%E6%A8%A1%E5%9D%97%E5%8E%9F%E7%90%86%E5%9B%BE.pdf)
+
 
 References:
 * [GitHub ILI9488](https://github.com/topics/ili9488)
@@ -540,6 +547,65 @@ References:
 * [TFT_eSPI on GitHub](https://github.com/Bodmer/TFT_eSPI)
   * [Initialization](https://github.com/Bodmer/TFT_eSPI/blob/master/TFT_Drivers/ILI9488_Init.h)
 
+
+## Connections
+
+* SPI signals
+  * CS - `CSX` in the data sheet
+  * SCK - `WRX/SCL` in the datasheet
+  * SDO/SDI 
+* DC/RS - `CSX` in the datasheet
+  * Must be low when sending a command (during bit 0, but I just do the whole byte)
+  * Must be high when sending data or parameters for a command
+  * This is part of the "4-line SPI" protocol
+* RESET - `RESX` in the datasheet 
+  * active low reset (can tie high if not used)
+  * "Be sure to execute a power-on reset after supplying power." (page 23)
+* LED - Turns on the backlight - provide 3.3V
+* VCC/GND - 3.3V and Ground
+
+It is unclear to me if the `SDI` pin can be used as bi-directional `SDA` pin.
+However, if `SDO` is not used then it should be left floating (page 23).
+
+
+## Unusual things noted
+
+* Some read commands have a "dummy bit" before you can read a multi-byte response
+* Data sheet says 5-6-5 data format is supported but I cannot see how to access it
+
+## High level thoughts
+
+* 480 x 320 = 153,600 pixels
+  * times 3 channels = 460,800 bits of data minimum at 1 bit
+  * or 460 KB of data at 1 byte per channel or 1,382,400 byte at 3 bytes per channel
+    * (The display only does 6 bits per channel)
+  * With overhead (1 byte per 6 bytes) = 1.6 MB transfer
+    * At 12.5MHz that is about 1.5 MB/s
+    * or about 1 Hz screen refresh rate (really slow)
+  * at 2 pixels (1/1/1 bit depth) per byte = 
+* Will need to put inter-byte delays to minimum/zero
+  * Spec sheet does not seem to need any based on timing diagrams
+
+It might be best to implement drawing directly to video memory of the SPI
+device, rather than having a framebuffer in the FPGA and sending data there,
+as it seems it will take a second to draw the screen.
+
+If, instead, there is a screen of 8x16 characters that would hold
+60x20 characters, maybe we could write each character to the SPI
+memory as it was changed. However, there doesn't seem to be an easy
+way to do this without using th
+
+
+## Open Questions
+
+* 5-6-5 bits per pixel seems to be supported but I cannot figure out how
+  to use it.
+  * This would reduce by a third the number of bits that need to be transferred
+    per frame
+
+* Is there a way to set the current column/page address (memory write pointer)?
+  * I have not seen any in the data sheet.
+  * Partial Area may be useful, but it is unclear how that works
 
 ## Reverse engineering
 
@@ -610,10 +676,16 @@ Pins from Datasheet:
 * A - `DC/RS` on board, seems to be `D/CX` in data sheet
 * B - `LED` (seems to turn backlight on?)
 
+
 `spicl` examples
+* Note: The first byte has to have the `DC/RS` pin low, the rest have to have it high
+  * This implies we are using the 4-pin SPI mode
+  * This means we need a new SPI driver than the one we're currently using
+  * I am using the `A` pin on SPI Driver for the `DC/RS` AKA `D/CX` pin
 * .\spicl COM3 s a 0 w 0x04 a 1 r 4 u
   * 0x2a,0x40,0x33,0x00
   * Command: Read display identification information
+  * This has a "dummy bit" that needs to be compensated for
 * .\spicl COM3 s a 0 w 0x09 a 1 r 5 u
   * 0x00,0x30,0x80,0x00,0x00
   * Command: Read Display Status
@@ -621,25 +693,47 @@ Pins from Datasheet:
   * .\spicl COM3 s a 0 w 0x01 a 1 u
   * Soft reset
 
+
+
 [Initialization from GitHub](https://github.com/Bodmer/TFT_eSPI/blob/master/TFT_Drivers/ILI9488_Init.h)
 
 ```
 (did not set positive/negative gamma control)
 PS:31 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xC0 a 1 w 0x17,0x15 u
+  Power control 1
 PS:32 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xC1 a 1 w 0x41 u
+  Power control 2
 PS:33 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xC5 a 1 w 0x00,0x12,0x80 u
+  VCOM Control (takes 4 parameters, but only 3 provided?)
 PS:34 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x36 a 1 w 0x48 u
+  Memory Access control
+  BGR panel (the 8)
+  Write from the top right down to the bottom, then scan toward the left
+  WE WANT THIS TO BE 0xE8 in the future
 PS:35 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x3A a 1 w 0x66 u
+  Interface pixel format (page 200)
+  18 bits per pixel (twice)
 PS:36 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB0 a 1 w 0x00 u
+  Interface Mode Control
+  Use SDO (0x80 would use SDA for DIO and disable SDO)
 PS:37 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB1 a 1 w 0xA0 u
+  Frame rate control  (takes two parameters, this ignored one)
 PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 a 1 w 0x02 u
+  Display inversion control - two dot inversion
 PS:39 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB6 a 1 w 0x02,0x02,0x3B u
+  Display function control (page 228)
 PS:40 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB7 a 1 w 0xC6 u
+  Entry mode set (page 232)
 PS:41 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xF7 a 1 w 0xA8,0x51,0x2c,0x82 u
+  Adjust Control 3 (page 276) - "use loose packet RGB 666"
 PS:42 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x11 u
-(exit sleep, 120 delay)
+  (exit sleep, 120 delay)
+  Sleep OUT (page 166)
+  Must wait 5ms before the next command
+  Must wait 120ms after Sleep IN before you can issue Sleep OUT
 PS:43 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x29 u
-(display on, 25 delay)
+  (display on, 25 delay)
+  Display ON (page 174)
 ```
 ... and the display turned on!
 
@@ -705,22 +799,86 @@ PS:65 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2B 
 PS:66 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2C a 1 w 0xFF,0xFF,0xFF u
 ```
 
-* This draws the top right most pixel and then starts scanning down
+This draws the top right most pixel and then starts scanning down
 * It always resets the drawing at the start coordinates provided (very inconvenient)
 * Try the "Memory Write Continue" command 0x3C (5.2.35, page 201)
   * That worked
 
-* So, to write to memory, one time set the start column & start page
+So, to write to memory, one time set the start column & start page
 * Then start writing with the 0x2C command
 * and continue writing with 0x3C command if you don't write everything all at once
 
 
+Memory Access Control (0x36) Section 5.2.30 page 192
+* If we write 0x20, it starts writing from the bottom right backwards
+  to the left.
+* If we write 0x60, it starts writing from the top right backwards to the left.
+* 0x40 seems not to change anything
+* 0xE0 seems to do what we want:
+  * Write from top left corner toward the right, then the bottom
+* So, write 0x36 0xE0 to scan properly
+* Now need to set the column/page address information correctly
+* Column: 0x2A 0 0 0x01 0xDF
+* Page:   0x2B 0 0 0x01 0x3F
+* BUT: 0xE0 gets the RGB/BGR wrong, so we need to really set 0xE8
+  as the panel I have at least is BGR apparently
+
+```
+.\spicl COM3 s a 0 w 0x36 a 1 w 0xE8 u
+PS:288 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2A a 1 w 0,0,1,0xDF u
+PS:289 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x2B a 1 w 0,0,1,0x3F u
+```
 
 
+Figure out how two write 1 bit per pixel mode
+* --RG_BRGB - so two red pixels would be 0x24, two green would be 0x12
+  * See 4.7.2.1 page 121
+* This is actually simple, set 0x3A to 0x61 (see page 200)
+  * `.\spicl COM3 s a 0 w 0x3A a 1 w 0x61 u`
 
-* Note: The first byte has to have the `DC/RS` pin low, the rest have to have it high
-  * This implies we are using the 4-pin SPI mode
-  * This means we need a new SPI driver than the one we're currently using
+Figure out how to write 5-6-5 pixel mode
+* See page 121, which says set Command 3A (page 200) DBI to 101
+* .\spicl COM3 s a 0 w 0x3A a 1 w 0x65 u
+  * This does not work
+* No combination I tried with 0x_5 seems to work
+
+
+#### Minimal initialization
+
+Defaults:
+* Draws up from bottom right, moving toward the left
+* Has wrong RGB setting (255,0,0 is blue not red)
+* Does 6 bits per pixel
+
+Initialization sequence:
+* Memory Access Control 0x36 to 0xE8 (page 192)
+  * scan top left to bottom right
+  * BGR mode
+* (Optional: Set 1 bit mode: set 0x3A to 0x61)
+* Column Address Set: 0x2A 0 0 0x01 0xDF
+* Page Address Set:   0x2B 0 0 0x01 0x3F
+* Sleep OUT 0x11 (page 166)
+  * Wait 5ms
+* Display ON 0x29 (page 168)
+
+Start writing memory
+* 0x2C to begin a new frame
+* 0x3C to continue a current frame
+  * This is not strictly necessary, you can continue without the command
+    if you just do not assert the `DC/RS` (on the board, `CSX` on the data sheet) pin
+
+This seems to work fine:
+```
+.\spicl COM3 s a 0 w 0x36 a 1 w 0xE8 u
+.\spicl COM3 s a 0 w 0x2A a 1 w 0,0,1,0xDF u
+.\spicl COM3 s a 0 w 0x2B a 1 w 0,0,1,0x3F u
+.\spicl COM3 s a 0 w 0x11 u
+.\spicl COM3 s a 0 w 0x29 u
+
+.\spicl COM3 s a 0 w 0x2C a 1 w 0,255,0... u
+.\spicl COM3 s a 0 w 0x3C a 1 w 0,255,0... u
+...
+```
 
 
 ### SPI Driver Reading is Odd
