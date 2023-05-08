@@ -1,6 +1,13 @@
 # FPGA SPI & Peripheral Implementations
 
-Copyright ⓒ 2023 Douglas P. Fields, Jr. All Rights Reserved.
+Copyright ⓒ 2023 Douglas P. Fields, Jr. symbolics@lisp.engineer
+
+Code and documentation herein by Douglas P. Fields, Jr. is icensed under 
+[Solderpad Hardware License 2.1](https://solderpad.org/licenses/SHL-2.1/),
+which wraps the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
+
+See licensing information in [LICENSE](LICENSE) and additional
+notices in [NOTICE](NOTICE) files herein.
 
 ## Overview
 
@@ -20,13 +27,45 @@ Pimoroni Unicorn Hat Mini.
 * Unicorn Hat Mini-specific controller
   * Binary mode only (i.e., RGB non-grayscale)
 * UHM demo
+* [in progress] ILI9488 480x320 LCD
 
 ## TODO
+
+* 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
+  * Update SPI controller:
+    * Add ability to set another signal during various bytes
+      * Start high or low
+      * Switch after N bytes
+      * This can be used for the Command or Data pin
+  * Implement basic ILI9488 controller on top of SPI controller
+  * Implement 3-bit-per-pixel bitmap interface
+    * 153,600 pixels x 3 bits per pixel = 460,800 bits for memory
+    * 51,200 locations at 3 pixels of 3 bits each (fitting in our 9-bit block RAMs)
+    * (This seems like an inconvenient memory structure; you can't write just one pixel.)
+  * Implement 3-bit-per-pixel SPI interface
+    * 2 pixels per byte in SPI interface
+    * 76,800 bytes to refresh the screen
+    * Provide a display memory from which we'll read the data
+  * Maybe implement a 60x20 character interface instead (1,200 bytes)
+    * Output bitmapped characters directly from Character RAM
+    * Maybe make a routine that starts reading from Character RAM and feeds
+      pixels into a FIFO for the SPI interface to read?
+      * How would the clock-divided SPI interface read just one byte from FIFO?
+      * Maybe use a toggle signal, and whenever the divided thing toggles, another
+        outside part sees that and loads a value from the FIFO - that necessarily
+        adds another cycle of latency though
+    * The Character Generator FIFO can be started by a start signal
+    * Reuse the 8x16 font previously used in VGA interface
+  * Enable full 20MHz speed on the SPI interface
+    * Use a PLL to go from 50MHz to 80MHz
+    * Use a 4x `CLK_DIV`
+    * See how fast this chip can really go (despite 250ns limit in the docs
+  * Reduce delays 
 
 * Unicorn Hat Mini
   * Brightness for binary mode
   * Grayscale mode
-* Specify Solderpad Hardware License 2.1 once I figure out how
+
 
 ## Modules
 
@@ -511,7 +550,7 @@ to get access to the "COM" port.
   * WRITE ONLY (for now)
   * Parameter configured maximum write burst size.
 
-# Open questions
+## Open questions
 
 * Are the two HT16D35A chips wired in sync mode? (page 3, SYNC pin)
 
