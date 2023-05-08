@@ -1,4 +1,5 @@
-// Copyright 2022 Douglas P. Fields, Jr. All Rights Reserved. 
+// Copyright ⓒ 2023 Douglas P. Fields, Jr. symbolics@lisp.engineer
+// Licensed under Solderpad Hardware License 2.1 - see LICENSE
 
 // Combinational logic to decode a nibble to a 7-segment
 // display. Output is LSB = segment A.

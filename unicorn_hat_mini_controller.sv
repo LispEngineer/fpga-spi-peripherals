@@ -1,4 +1,5 @@
-// Copyright ⓒ 2023 Douglas P. Fields, Jr. All Rights Reserved.
+// Copyright ⓒ 2023 Douglas P. Fields, Jr. symbolics@lisp.engineer
+// Licensed under Solderpad Hardware License 2.1 - see LICENSE
 //
 // Pimoroni Unicorn Hat Mini Controller
 //

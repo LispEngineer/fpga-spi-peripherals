@@ -1,4 +1,6 @@
-// Copyright ⓒ 2023 Douglas P. Fields, Jr. All Rights Reserved.
+// Copyright ⓒ 2023 Douglas P. Fields, Jr. symbolics@lisp.engineer
+// Licensed under Solderpad Hardware License 2.1 - see LICENSE
+//
 // Generic TM1638 controller that uses 3-wire SPI controller
 
 // This can be used for the LED & KEY board and others based on the

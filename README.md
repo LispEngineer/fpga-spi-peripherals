@@ -6,8 +6,8 @@ Code and documentation herein by Douglas P. Fields, Jr. is icensed under
 [Solderpad Hardware License 2.1](https://solderpad.org/licenses/SHL-2.1/),
 which wraps the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
 
-See licensing information in [LICENSE](LICENSE) and additional
-notices in [NOTICE](NOTICE) files herein.
+See licensing information in [`LICENSE`](LICENSE) and additional
+notices in [`NOTICE`](NOTICE) files.
 
 ## Overview
 

@@ -1,4 +1,5 @@
-// Copyright ⓒ 2023 Douglas P. Fields, Jr. All Rights Reserved.
+// Copyright ⓒ 2023 Douglas P. Fields, Jr. symbolics@lisp.engineer
+// Licensed under Solderpad Hardware License 2.1 - see LICENSE
 //
 // LED&KEY controller - an 8 LED, 8 7-seg with decimal, 8 button device
 // based on the TM1638.
