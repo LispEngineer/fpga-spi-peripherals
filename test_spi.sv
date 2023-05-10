@@ -38,10 +38,11 @@ localparam OUT_BYTES_SZ = $clog2(OUT_BYTES + 1);
 localparam IN_BYTES = 4;
 localparam IN_BYTES_SZ = $clog2(IN_BYTES + 1);
 
-// 3-wire SPI interface
+// 3-wire SPI interface PLUS dcx
 logic sck;
 logic dio_o, dio_i, dio_e;
 logic [NUM_SELECTS-1:0] cs;
+logic dcx;
 
 // Make random data on dio_i
 always begin
@@ -57,12 +58,20 @@ logic [OUT_BYTES_SZ-1:0] out_count;
 logic [7:0] in_data [IN_BYTES];
 logic [IN_BYTES_SZ-1:0] in_count;
 
+// Optional inputs
+logic dcx_start;
+logic dcx_flip;
+
+//`define TEST_SLOW_SPI
+`undef TEST_SLOW_SPI
+`ifdef TEST_SLOW_SPI
+
 spi_3wire_controller #(
   .NUM_SELECTS(NUM_SELECTS),
   .OUT_BYTES(OUT_BYTES),
   .CLK_DIV(12), // Simulation shows this produces a 280ms clock
   .ALL_DONE_DELAY(1)
-) dut (
+) dut_slow_spi (
   .clk,
   .reset,
 
@@ -84,6 +93,41 @@ spi_3wire_controller #(
   .in_count
 );
 
+`else // ifndef TEST_SLOW_SPI
+
+spi_3wire_controller #(
+  .NUM_SELECTS(NUM_SELECTS),
+  .OUT_BYTES(OUT_BYTES),
+  .CLK_DIV(4), // 12.5 MHz clock from 50 MHz input
+  .CLK_2us(4), // We don't need any inter-byte delay in IPI9488 datasheet
+  .ALL_DONE_DELAY(0),
+  .DCX_FLIP_MAX(1) // We need to flip the DCX signal after every command
+) dut_ipi9488 (
+  .clk,
+  .reset,
+
+  // SPI interface
+  .sck, // Serial Clock
+  .dio_o, // data out for DIO or SDO
+  .dio_i, // data in  for DIO or SDI
+  .dio_e, // dio_o when high, dio_i when low
+  .cs,  // Chip select (previously SS) - active low
+  .dcx,
+
+  // Controller interface
+  .busy,
+  .activate,
+  .in_cs, // Active high for which chip(s) you want enabled
+  .out_data,
+  .out_count,
+  .in_data,
+  .in_count,
+  .dcx_start,
+  .dcx_flip
+);
+
+`endif
+
 
 // initialize test with a reset for 22 ns
 initial begin
@@ -102,6 +146,9 @@ initial begin
   out_data[2] <= 8'b1010_0101;
   out_count <= OUT_BYTES;
   in_count <= 3'd4;
+  // This will be ignored for slow SPI
+  dcx_start <= '1;
+  dcx_flip <= 1'd1;
   #(CLOCK_DUR * 128)
   activate <= '0;
 

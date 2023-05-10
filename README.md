@@ -32,13 +32,16 @@ Pimoroni Unicorn Hat Mini.
 ## TODO
 
 * 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
-  * Update SPI controller:
-    * Add ability to set another signal during various bytes
+  *  [In Progress] Update SPI controller:
+    * Add ability to set dcx signal during various bytes
       * Start high or low
       * Switch after N bytes
       * This can be used for the Command or Data pin
+    * Improve test bench to test this
+    * Fix off-by-one error in counting half-bits
+    * Fix inter-byte delay due to above off-by-one error
   * Implement basic ILI9488 controller on top of SPI controller
-  * Implement 3-bit-per-pixel bitmap interface
+  * Implement 3-bit-per-pixel bitmap interface for ILI9488 display
     * 153,600 pixels x 3 bits per pixel = 460,800 bits for memory
     * 51,200 locations at 3 pixels of 3 bits each (fitting in our 9-bit block RAMs)
     * (This seems like an inconvenient memory structure; you can't write just one pixel.)

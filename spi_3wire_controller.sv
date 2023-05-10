@@ -3,6 +3,8 @@
 
 /*
 Implementation of a 3-wire SPI Controller,
+sort of like a half-duplex SPI (or used when a 4-wire SPI will never
+have both reads and writes going on concurrently).
 
 TODO:
 * Use a FIFO for transmit data, and stop the transaction once
@@ -48,6 +50,20 @@ reading is unstable until rising edge of the clock.
 
 The Cyclone IV built in weak pull-up seems sufficient for the job though.
 
+-----------------
+
+Added "dcx" output pin for compatibility with the ILI9488 4-wire SPI interface,
+AKA "DBI Type C Option 3." Technically this is sampled during the LSB only
+according to the timing diagram on page 44 of Version 100 of the datasheet,
+but we will assert it during entire bytes.
+
+This pin is set to dcx_start and changed after dcx_flip bytes have been sent.
+If dcx_flip is zero, dcx_start is maaintained the entire time.
+
+TODO: Add option for "dummy clock cycle" during reads, where after the writes are done,
+we wait one bit cycle. This will support ILI9488 multi-byte reads.
+(See page 47 of Version 100 of datasheet.)
+
 */
 
 
@@ -81,7 +97,11 @@ module spi_3wire_controller #(
   // FIXME: Add parameter to skip the inter-byte delay after the last byte?
 
   // We default to MSB first
-  parameter LSB_FIRST = 0
+  parameter LSB_FIRST = 0,
+
+  // Optional controller interface - see comments above
+  parameter DCX_FLIP_MAX = 0,
+  parameter DCX_FLIP_SZ = $clog2(DCX_FLIP_MAX)
 ) (
   input logic clk,
   input logic reset,
@@ -93,6 +113,9 @@ module spi_3wire_controller #(
   output logic dio_e, // data in/out - enable for in/out buffer
   output logic [NUM_SELECTS-1:0] cs,  // Chip select (previously SS) - active low
 
+  // Optional additional interface
+  output logic dcx, // Data/Command select; Low: Command; High: Parameter
+
   // Controller interface
   output logic busy,
   input  logic activate,
@@ -100,14 +123,24 @@ module spi_3wire_controller #(
   input  logic [7:0] out_data [OUT_BYTES],
   input  logic [OUT_BYTES_SZ-1:0] out_count,
   output logic [7:0]  in_data [IN_BYTES],
-  input  logic  [IN_BYTES_SZ-1:0] in_count
+  input  logic  [IN_BYTES_SZ-1:0] in_count,
+
+  // Optional controller interface
+  input  logic                   dcx_start,
+  input  logic [DCX_FLIP_SZ-1:0] dcx_flip
 );
 
+// FIXME: Ensure CLK_DIV >= 1
 
 // Our half-bit times are half the CLK_DIV
 localparam CLK_HALF_BIT = (CLK_DIV + 1) >> 1; // $ceil not working for QUESTA
-localparam HALF_BIT_SZ = $clog2(CLK_HALF_BIT) + 1; // This should be 4 but is coming out 3
-localparam HALF_BIT_START = (HALF_BIT_SZ)'(CLK_HALF_BIT);
+// We don't really need the + 1 since we always start counting at CLK_HALF_BIT - 1
+localparam HALF_BIT_SZ = $clog2(CLK_HALF_BIT + 1);
+// We start counting at 1 less than our half bit and then do our
+// main state machine when it reaches 0. If we started at HALF_BIT_START
+// (e.g., CLK_DIV = 4 -> CLK_HALF_BIT = 2) so HALF_BIT_START will be 1,
+// and then we will go on 0.
+localparam HALF_BIT_START = (HALF_BIT_SZ)'(CLK_HALF_BIT - 1);
 localparam MAX_BYTE_SZ = IN_BYTES_SZ > OUT_BYTES_SZ ? IN_BYTES_SZ : OUT_BYTES_SZ;
 
 typedef enum int unsigned {
@@ -129,6 +162,16 @@ logic              [7:0] r_out_data [OUT_BYTES];
 logic [OUT_BYTES_SZ-1:0] r_out_count;
 logic  [IN_BYTES_SZ-1:0] r_in_count;
 
+// Optional:
+logic                    r_dcx_start;
+// Starting value of dcx_flip
+logic  [DCX_FLIP_SZ-1:0] r_dcx_flip;
+// Current count, when it reaches zero we need to flip the dcx
+logic  [DCX_FLIP_SZ-1:0] dcx_flip_counter;
+// Did we do the flip already?
+logic                    dcx_flipped; 
+
+
 logic [MAX_BYTE_SZ-1:0] current_byte;
 logic             [2:0] current_bit; // We send MSB first
 logic [MAX_BYTE_SZ-1:0] current_last_byte;
@@ -136,6 +179,8 @@ logic [MAX_BYTE_SZ-1:0] current_last_byte;
 // Calculate a 2µs delay
 localparam INTER_BYTE_DELAY = ((CLK_2us + CLK_DIV - 1) / CLK_DIV) * 2; // $ceil not working for Questa
 localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY + 1);
+// FIXME: -3 now that we fixed the off by one error on the half-bit timing
+// FIXME: INTER_BYTE_DELAY should never allowed to be negative
 localparam IB_DELAY_START = (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 3); // This -3 was found with simulation but still results in a 2,380µs clock peak
 logic [IB_DELAY_SZ-1:0] inter_byte_delay;
 
@@ -171,8 +216,15 @@ always_ff @(posedge clk) begin: main_spi_controller
         r_out_data <= out_data;
         r_out_count <= out_count;
         r_in_count <= in_count;
-        current_last_byte <= out_count - 1'd1;
+        if (DCX_FLIP_MAX != '0) begin: dcx_flip_activate
+          r_dcx_start <= dcx_start;
+          r_dcx_flip <= dcx_flip;
+          dcx_flip_counter <= dcx_flip - 1'd1; // Start counting; will be ignored if dcx_flip is 0
+          dcx_flipped <= '0;
+          dcx <= r_dcx_start;
+        end: dcx_flip_activate
 
+        current_last_byte <= out_count - 1'd1;
         current_byte <= '0;
         current_bit <= 3'd7;
 
@@ -206,6 +258,21 @@ always_ff @(posedge clk) begin: main_spi_controller
           // before our next bit or releasing CS.
           state <= S_INTER_BYTE;
           inter_byte_delay <= IB_DELAY_START;
+
+          if (DCX_FLIP_MAX != '0) begin: dcx_flip_end_of_byte
+            if (r_dcx_flip != '0) begin: user_wants_dcx_flipped
+              // If it's already been flipped this transaction, do nothing
+              if (!dcx_flipped) begin: dcx_not_yet_flipped
+                if (dcx_flip_counter == '0) begin: do_dcx_flip
+                  dcx <= ~dcx;
+                  dcx_flipped <= '1;
+                end: do_dcx_flip else begin: dcx_flip_count_decrement
+                  dcx_flip_counter <= dcx_flip_counter - 1'd1;
+                end: dcx_flip_count_decrement
+              end: dcx_not_yet_flipped
+            end: user_wants_dcx_flipped
+          end: dcx_flip_end_of_byte
+
         end: last_bit else begin: more_bits
           current_bit <= current_bit - 1'd1;
         end: more_bits
