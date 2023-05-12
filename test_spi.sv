@@ -62,14 +62,14 @@ logic [IN_BYTES_SZ-1:0] in_count;
 logic dcx_start;
 logic [1:0] dcx_flip;
 
-`define TEST_SLOW_SPI
-//`undef TEST_SLOW_SPI
+//`define TEST_SLOW_SPI
+`undef TEST_SLOW_SPI
 `ifdef TEST_SLOW_SPI
 
 spi_3wire_controller #(
   .NUM_SELECTS(NUM_SELECTS),
   .OUT_BYTES(OUT_BYTES),
-  .CLK_DIV(12), // Simulation shows this produces a 240ns clock
+  .CLK_DIV(12), // Simulation shows this produces a 240ns clock (as expected)
   .CLK_2us(96), // 100 produces a 2400ns/2.4µs delay clock cycle; 84 produces a 1922ns delay; 96 does 2162ns
   .ALL_DONE_DELAY(1)
 ) dut (
