@@ -69,7 +69,9 @@ spi_3wire_controller #(
   .CLK_2us(CLK_2us),
   .NUM_SELECTS(NUM_SELECTS),
   .OUT_BYTES(OUT_BYTES),
-  .OUT_BYTES_SZ(OUT_BYTES_SZ)
+  .OUT_BYTES_SZ(OUT_BYTES_SZ),
+  // Unused: Optional D/CX SPI output
+  .DCX_FLIP_MAX(0)
 ) uhm_spi_inst (
   .clk,
   .reset,
@@ -78,13 +80,16 @@ spi_3wire_controller #(
   .dio_o(sdo),
   .dio_i(), .dio_e(), // Unused
   .cs,
+  .dcx(), // Optional/unused
 
   .busy,
   .activate,
   .in_cs,
   .out_data,
   .out_count,
-  .in_data(), .in_count('0) // Unused
+  .in_data(), .in_count('0), // Unused
+
+  .dcx_start(), .dcx_flip() // Optional/unused
 );
 
 

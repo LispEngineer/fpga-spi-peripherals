@@ -54,7 +54,9 @@ unicorn_hat_mini_controller #(
 ) dut (
   .clk, .reset,
 
-  .sck, .sdo, .cs
+  .sck, .sdo, .cs,
+
+  .display_mem_b() // Unused - this test is outdated acutally
 );
 
 

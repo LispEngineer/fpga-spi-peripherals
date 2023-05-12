@@ -33,7 +33,7 @@ always begin
 end
 
 localparam NUM_SELECTS = 2;
-localparam OUT_BYTES = 3;
+localparam OUT_BYTES = 5;
 localparam OUT_BYTES_SZ = $clog2(OUT_BYTES + 1);
 localparam IN_BYTES = 4;
 localparam IN_BYTES_SZ = $clog2(IN_BYTES + 1);
@@ -60,7 +60,7 @@ logic [IN_BYTES_SZ-1:0] in_count;
 
 // Optional inputs
 logic dcx_start;
-logic dcx_flip;
+logic [1:0] dcx_flip;
 
 //`define TEST_SLOW_SPI
 `undef TEST_SLOW_SPI
@@ -71,7 +71,7 @@ spi_3wire_controller #(
   .OUT_BYTES(OUT_BYTES),
   .CLK_DIV(12), // Simulation shows this produces a 280ms clock
   .ALL_DONE_DELAY(1)
-) dut_slow_spi (
+) dut (
   .clk,
   .reset,
 
@@ -99,10 +99,10 @@ spi_3wire_controller #(
   .NUM_SELECTS(NUM_SELECTS),
   .OUT_BYTES(OUT_BYTES),
   .CLK_DIV(4), // 12.5 MHz clock from 50 MHz input
-  .CLK_2us(4), // We don't need any inter-byte delay in IPI9488 datasheet
+  .CLK_2us(0), // We don't need any inter-byte delay in IPI9488 datasheet
   .ALL_DONE_DELAY(0),
   .DCX_FLIP_MAX(1) // We need to flip the DCX signal after every command
-) dut_ipi9488 (
+) dut (
   .clk,
   .reset,
 
@@ -139,6 +139,8 @@ initial begin
   reset <= 1'b0;
   #(POST_RESET_DUR);
 
+`ifdef TEST_SLOW_SPI
+
   activate <= '1;
   in_cs <= 2'b01;
   out_data[0] <= 8'hCC;
@@ -148,9 +150,34 @@ initial begin
   in_count <= 3'd4;
   // This will be ignored for slow SPI
   dcx_start <= '1;
+  dcx_flip <= 1'd0;
+  #(CLOCK_DUR * 128)
+  activate <= '0;
+
+`else // `ifdef TEST_SLOW_SPI
+
+  activate <= '1;
+  in_cs <= 2'b01;
+  // Column Address Set - SC15-8,7-0; EC15-8,7-0
+  // D/CX starts at 0 for the first byte and is 1 for all subsequent bites
+  // .\spicl COM3 s a 0 w 0x2A a 1 w 0,0,1,0xDF u
+  out_data[0] <= 8'h2A;
+  out_data[1] <= 8'h00;
+  out_data[2] <= 8'h00;
+  out_data[3] <= 8'h01;
+  out_data[4] <= 8'hDF;
+
+  out_count <= 5;
+  in_count <= 3'd0;
+  // This will be ignored for slow SPI
+  dcx_start <= '0; // 0 = Command; 1 = Data
   dcx_flip <= 1'd1;
   #(CLOCK_DUR * 128)
   activate <= '0;
+
+`endif // `ifdef TEST_SLOW_SPI
+
+
 
   #(CLOCK_DUR * 5000)
   $display("Ending simulation @ ", $time);

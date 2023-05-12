@@ -80,8 +80,10 @@ module spi_3wire_controller #(
   // How fast do we run the output SPI clock, as a divider from the provided clock.
   // If we have 50 MHz and want <= 4 MHz sck output, we need 12.5x, 
   // call it 16 since we prefer an multiple of 4 value so we can halve or quarter it.
+  // (We don't actually quarter it in practice though, so even should be fine.)
   parameter CLK_DIV = 16,
   parameter DIV_SZ = $clog2(CLK_DIV + 1),
+  // FIXME: Rename the CLK_2us to CLK_interbyte_delay or something more accurate
   parameter CLK_2us = 100, // 2µs at current clock rate (50MHz = 20ns => 100)
   parameter us2_SZ = $clog2(CLK_2us + 1),
 
@@ -130,7 +132,7 @@ module spi_3wire_controller #(
   input  logic [DCX_FLIP_SZ-1:0] dcx_flip
 );
 
-// FIXME: Ensure CLK_DIV >= 1
+// FIXME: Ensure CLK_DIV >= 1 and is even
 
 // Our half-bit times are half the CLK_DIV
 localparam CLK_HALF_BIT = (CLK_DIV + 1) >> 1; // $ceil not working for QUESTA
@@ -179,9 +181,8 @@ logic [MAX_BYTE_SZ-1:0] current_last_byte;
 // Calculate a 2µs delay
 localparam INTER_BYTE_DELAY = ((CLK_2us + CLK_DIV - 1) / CLK_DIV) * 2; // $ceil not working for Questa
 localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY + 1);
-// FIXME: -3 now that we fixed the off by one error on the half-bit timing
-// FIXME: INTER_BYTE_DELAY should never allowed to be negative
-localparam IB_DELAY_START = (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 3); // This -3 was found with simulation but still results in a 2,380µs clock peak
+// INTER_BYTE_DELAY should never allowed to be negative
+localparam IB_DELAY_START = INTER_BYTE_DELAY > 0 ? (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 1) : 0;
 logic [IB_DELAY_SZ-1:0] inter_byte_delay;
 
 
@@ -221,7 +222,7 @@ always_ff @(posedge clk) begin: main_spi_controller
           r_dcx_flip <= dcx_flip;
           dcx_flip_counter <= dcx_flip - 1'd1; // Start counting; will be ignored if dcx_flip is 0
           dcx_flipped <= '0;
-          dcx <= r_dcx_start;
+          dcx <= dcx_start;
         end: dcx_flip_activate
 
         current_last_byte <= out_count - 1'd1;
@@ -256,6 +257,10 @@ always_ff @(posedge clk) begin: main_spi_controller
         if (current_bit == 0) begin: last_bit
           // We sent our last bit. We need to delay
           // before our next bit or releasing CS.
+          // FIXME: If INTER_BYTE_DELAY is 0, don't do the inter byte delay and move
+          // directly to the next byte. Otherwise it acts as if it is an inter byte
+          // delay of a minimal-non-zero regardless of what the truth is.
+          // Maybe use a task to do the S_INTER_BYTE code here and there.
           state <= S_INTER_BYTE;
           inter_byte_delay <= IB_DELAY_START;
 
