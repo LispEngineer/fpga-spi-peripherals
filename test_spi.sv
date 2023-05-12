@@ -178,7 +178,7 @@ initial begin
   // This will be ignored for slow SPI
   dcx_start <= '0; // 0 = Command; 1 = Data
   dcx_flip <= 1'd1;
-  #(CLOCK_DUR * 128)
+  #(CLOCK_DUR * 12)
   activate <= '0;
 
 `endif // `ifdef TEST_SLOW_SPI
