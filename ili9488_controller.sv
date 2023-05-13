@@ -126,7 +126,7 @@ localparam PIXEL_COUNT = 480 * 320;
 localparam PIXELS_PER_BYTE_111 = 2;
 localparam MEMORY_BYTES = PIXEL_COUNT / PIXELS_PER_BYTE_111;
 localparam MEM_SZ = $clog2(MEMORY_BYTES + 1);
-localparam LAST_MEMORY_BYTE = MEMORY_BYTES - 8; // 8 bytes at a time
+localparam LAST_MEMORY_BYTE = MEMORY_BYTES; // 8 bytes at a time
 // See 4.7.2.1 p 121 - RGB 1-1-1: xxRGBRGB - two pixels per byte
 // localparam MEM_BYTE = 8'b00_100_100;
 logic [MEM_SZ-1:0] refresh_mem_pos;
@@ -134,7 +134,7 @@ logic [MEM_SZ-1:0] refresh_mem_pos;
 ////////////////////////////////////////////////////////////////////////////
 // Display different colors every now and then
 
-logic [27:0] disp_color_count = 26'b001_000_0000_0000_0000_0000_0000;
+logic [27:0] disp_color_count = 28'b0010__0000_0000__0000_0000__0000_0000;
 logic  [7:0] display_byte;
 
 // assign display_byte = {2'b0, disp_color_count[27:25], disp_color_count[27:25]};
@@ -143,7 +143,9 @@ always_ff @(posedge clk) begin: change_colors
   disp_color_count <= disp_color_count + 1'd1;
   // Only update the color while the delay is going on,
   // to prevent screen tearing
-  if (state == S_DELAY)
+  if (reset)
+    disp_color_count <= '0;
+  else if (state == S_DELAY)
     display_byte <= {2'b0, disp_color_count[27:25], disp_color_count[27:25]};
 end: change_colors
 
@@ -199,7 +201,7 @@ always_ff @(posedge clk) begin: uhm_main
     end: init_1
     2: begin: init_2
       // Column address set 5.2.22 p 175
-      next_out_count       <= (OUT_BYTES_SZ)'(4);
+      next_out_count       <= (OUT_BYTES_SZ)'(5);
       next_out_data[0]     <= 8'h2A;
       next_out_data[1]     <= 8'h00;
       next_out_data[2]     <= 8'h00;
@@ -208,9 +210,9 @@ always_ff @(posedge clk) begin: uhm_main
     end: init_2
     3: begin: init_3
       // Page address set 5.2.23 p 177
-      next_out_count       <= (OUT_BYTES_SZ)'(4);
+      next_out_count       <= (OUT_BYTES_SZ)'(5);
       next_out_data[0]     <= 8'h2B;
-      // Skipp the next 3 as they are the same as step 1
+      // Skip the next 3 as they are the same as step 1
       // next_out_data[1]     <= 8'h00;
       // next_out_data[2]     <= 8'h00;
       // next_out_data[3]     <= 8'h01;

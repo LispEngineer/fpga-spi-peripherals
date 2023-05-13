@@ -90,7 +90,7 @@ assign reset = ~KEY[3];
 `ifdef ILI9488_DEMO
 
 ili9488_controller #(
-  .CLK_DIV(2) // Use 12 to slow down things for testing; 2 works but shouldn't (40ns < 50ns minimum clock)
+  .CLK_DIV(4) // Use 12 to slow down things for testing; 2 sometimes works but shouldn't (40ns < 50ns minimum clock)
 ) ili9488_inst (
   .clk(CLOCK_50), 
   .reset,

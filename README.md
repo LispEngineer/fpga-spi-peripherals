@@ -589,14 +589,41 @@ References:
 * [TFT_eSPI on GitHub](https://github.com/Bodmer/TFT_eSPI)
   * [Initialization](https://github.com/Bodmer/TFT_eSPI/blob/master/TFT_Drivers/ILI9488_Init.h)
 
+## Implemented
+
+* Basic ILI9488 controller
+  * Initializes the display for horizontal configuration with 1-bit color resolution
+  * Sets the display to one color
+
+* Function:
+  * It takes a while at 12.5 MHz to refresh the screen, much longer than the ~75kbytes of
+    data transfer seems to imply. 75 kbytes -> ~750kbits
+  * It should be able to do ~16 refreshes a second but probably does less due to inefficiency
+    in my implementation
+
+## TODO
+
+* Do a 40 MHz clock via PLL with a controller divider of 2 to use maximum speed 20MHz?
+* Implement a character display similar to the VGA implementation I did earlier
+  * Implement color foreground and background for each character (6 bits)
+  * Font size 8w x 16h = 60x20 characters = 1,200 bytes of character ROM
+  * Need to pipeline the reads
+  * There are no porches to do things, and current implementation just streams the
+    same byte N times for video memory, so we need to do figure it out fresh
+    * Maybe have the RAM/ROM read in a different `always_ff` block
+    * Have a "first byte" and "next byte" flag from the main state machine
+      that inform the streaming reader via state changes to do something.
+
 
 ## Connections
 
 * SPI signals
   * CS - `CSX` in the data sheet
   * SCK - `WRX/SCL` in the datasheet
-  * SDO/SDI 
-* DC/RS - `CSX` in the datasheet
+  * SDO - note that this means data OUT from the ILI9488 in to the controller
+    * This is not used
+  * SDI - note that this means data out from the controller IN to the ILI9488
+* DC/RS - `D/CX` in the datasheet
   * Must be low when sending a command (during bit 0, but I just do the whole byte)
   * Must be high when sending data or parameters for a command
   * This is part of the "4-line SPI" protocol
@@ -606,7 +633,8 @@ References:
 * LED - Turns on the backlight - provide 3.3V
 * VCC/GND - 3.3V and Ground
 
-It is unclear to me if the `SDI` pin can be used as bi-directional `SDA` pin.
+The `SDI` pin can be used as bi-directional `SDA` pin if desired,
+with the "Interface Mode Control" `B0h` command's `SDA_EN` bit.
 However, if `SDO` is not used then it should be left floating (page 23).
 
 
