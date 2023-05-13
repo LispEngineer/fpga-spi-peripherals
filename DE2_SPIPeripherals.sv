@@ -86,7 +86,31 @@ logic reset;
 assign reset = ~KEY[3];
 
 
+`define ILI9488_DEMO
+`ifdef ILI9488_DEMO
 
+ili9488_controller #(
+  .CLK_DIV(2) // Use 12 to slow down things for testing; 2 works but shouldn't (40ns < 50ns minimum clock)
+) ili9488_inst (
+  .clk(CLOCK_50), 
+  .reset,
+
+  .sdo(GPIO[1]),
+  .sdi(GPIO[3]),
+  .sck(GPIO[5]),
+  .cs (GPIO[7]),
+  .dcx(GPIO[9])
+);
+
+`endif // ILI9488_DEMO
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+`ifdef UNICORN_HAT_MINI_DEMO
 
 /* 
 See Holtek HT16D35A Datasheet Rev 1.22:
@@ -135,6 +159,8 @@ unicorn_hat_mini_demo /* #(
 
   .sck, .sdo, .cs
 );
+
+`endif // UNICORN_HAT_MINI_DEMO
 
 
 ///////////////////////////////////////////////////////////////////////////////
