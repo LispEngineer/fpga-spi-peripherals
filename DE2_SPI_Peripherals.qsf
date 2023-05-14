@@ -390,6 +390,9 @@ set_global_assignment -name EDA_TEST_BENCH_FILE spi_3wire_controller.sv -section
 set_global_assignment -name EDA_TEST_BENCH_FILE spi_3wire_controller.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE test_uhmc.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE unicorn_hat_mini_controller.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
+set_global_assignment -name SYSTEMVERILOG_FILE text_pixel_generator.sv
+set_global_assignment -name QIP_FILE text_ram.qip
+set_global_assignment -name QIP_FILE character_rom.qip
 set_global_assignment -name SYSTEMVERILOG_FILE ili9488_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE unicorn_hat_mini_demo.sv
 set_global_assignment -name SYSTEMVERILOG_FILE test_uhmc.sv

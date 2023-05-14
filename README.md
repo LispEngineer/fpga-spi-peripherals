@@ -603,7 +603,8 @@ References:
 
 ## TODO
 
-* Do a 40 MHz clock via PLL with a controller divider of 2 to use maximum speed 20MHz?
+* Do a 40 MHz clock via PLL with a controller divider of 2 to use maximum speed 20MHz
+* Implement zero-inter-byte delay properly in the underlying SPI controller
 * Implement a character display similar to the VGA implementation I did earlier
   * Implement color foreground and background for each character (6 bits)
   * Font size 8w x 16h = 60x20 characters = 1,200 bytes of character ROM
