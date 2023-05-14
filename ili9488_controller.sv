@@ -185,7 +185,7 @@ always_ff @(posedge clk) begin: uhm_main
     next_dcx_flip        <= 2'd1;
     state                <= S_SEND_COMMAND;
     return_after_command <= S_INIT;
-    init_step            <= init_step + 1;
+    init_step            <= init_step + 1'd1;
     case (init_step)
     0: begin: init_0
       // Memory Access Control 5.2.30 p 192

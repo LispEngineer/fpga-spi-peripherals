@@ -113,16 +113,16 @@ character_rom	character_rom_inst (
 // Character pixel generator state machine
 
 // Count height pixel rows before moving to the next text memory row
-parameter LAST_TEXT_COL = (TEXT_WIDTH_SZ)'(TEXT_WIDTH - 1);
-parameter LAST_PIXEL_ROW = (CHAR_HEIGHT_SZ)'(CHAR_HEIGHT - 1);
+localparam LAST_TEXT_COL = (TEXT_WIDTH_SZ)'(TEXT_WIDTH - 1);
+localparam LAST_PIXEL_ROW = (CHAR_HEIGHT_SZ)'(CHAR_HEIGHT - 1);
 
 // Registers
 logic [CHAR_HEIGHT_SZ:0] pixel_row; // 0-15
 logic [TEXT_WIDTH_SZ-1:0] text_col;
 logic [TEXT_HEIGHT_SZ-1:0] text_row;
 logic [TEXT_SZ-1:0] text_rd_row_start;
-logic last_restart;
-logic last_next;
+logic last_restart = '0;
+logic last_next = '0;
 
 // Combinational
 logic [TEXT_SZ-1:0] next_text_rd_row_start;

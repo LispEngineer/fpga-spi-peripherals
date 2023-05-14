@@ -642,6 +642,7 @@ However, if `SDO` is not used then it should be left floating (page 23).
 ## Unusual things noted
 
 * Some read commands have a "dummy bit" before you can read a multi-byte response
+
 * Data sheet says 5-6-5 data format is supported but I cannot see how to access it
 
 ## High level thoughts
@@ -677,6 +678,14 @@ way to do this without using th
 * Is there a way to set the current column/page address (memory write pointer)?
   * I have not seen any in the data sheet.
   * Partial Area may be useful, but it is unclear how that works
+
+## Misc Notes
+
+* Converted `.mif` files to `.hex` format for Questa.
+  * These `.hex` files are NOT human readable though, so I'm keeping both in source.
+  * Use WSL2 Ubuntu 22 LTS for `srec_cat` command
+  * `srec_cat isoFont.mif -Memory_Initialization_File -Output isoFont.hex -Intel`
+  * `srec_cat starting_text.mif -Memory_Initialization_File -Output starting_text.hex -Intel`
 
 ## Reverse engineering
 

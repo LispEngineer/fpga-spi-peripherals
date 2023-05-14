@@ -230,7 +230,7 @@ set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_signal_integrity
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_boundary_scan
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
-set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH test_spi -section_id eda_simulation
+set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH text_pixel_generator -section_id eda_simulation
 set_global_assignment -name EDA_TEST_BENCH_NAME test_spi -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id test_spi
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_spi -section_id test_spi
@@ -390,6 +390,15 @@ set_global_assignment -name EDA_TEST_BENCH_FILE spi_3wire_controller.sv -section
 set_global_assignment -name EDA_TEST_BENCH_FILE spi_3wire_controller.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE test_uhmc.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE unicorn_hat_mini_controller.sv -section_id unicorn_hat_mini -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_NAME text_pixel_generator -section_id eda_simulation
+set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id text_pixel_generator
+set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_tpg -section_id text_pixel_generator
+set_global_assignment -name EDA_TEST_BENCH_FILE test_tpg.sv -section_id text_pixel_generator -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE text_pixel_generator.sv -section_id text_pixel_generator -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE text_ram.v -section_id text_pixel_generator
+set_global_assignment -name EDA_TEST_BENCH_FILE character_rom.v -section_id text_pixel_generator
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+set_global_assignment -name SYSTEMVERILOG_FILE test_tpg.sv
 set_global_assignment -name SYSTEMVERILOG_FILE text_pixel_generator.sv
 set_global_assignment -name QIP_FILE text_ram.qip
 set_global_assignment -name QIP_FILE character_rom.qip
@@ -408,4 +417,3 @@ set_global_assignment -name SYSTEMVERILOG_FILE tm1638_generic.sv
 set_global_assignment -name SYSTEMVERILOG_FILE seven_segment.sv
 set_global_assignment -name SYSTEMVERILOG_FILE test_spi.sv
 set_global_assignment -name QIP_FILE altiobuf_dio.qip
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

@@ -182,7 +182,7 @@ logic [MAX_BYTE_SZ-1:0] current_last_byte;
 localparam INTER_BYTE_DELAY = ((CLK_2us + CLK_DIV - 1) / CLK_DIV) * 2; // $ceil not working for Questa
 localparam IB_DELAY_SZ = $clog2(INTER_BYTE_DELAY + 1);
 // INTER_BYTE_DELAY should never allowed to be negative
-localparam IB_DELAY_START = INTER_BYTE_DELAY > 0 ? (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 1) : 0;
+localparam IB_DELAY_START = INTER_BYTE_DELAY > 0 ? (IB_DELAY_SZ)'(INTER_BYTE_DELAY - 1) : (IB_DELAY_SZ)'(0);
 logic [IB_DELAY_SZ-1:0] inter_byte_delay;
 
 
