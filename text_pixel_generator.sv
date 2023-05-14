@@ -53,10 +53,10 @@ module text_pixel_generator #(
   output logic [7:0] cur_pixels, // One character's width of pixels
 
   // Memory write interface to text RAM
-  input logic        clk_text_wr,
-  input logic        text_wr_ena,
-  input logic  [7:0] text_wr_data,
-  input logic [12:0] text_wr_addr
+  input logic               clk_text_wr,
+  input logic               text_wr_ena,
+  input logic         [7:0] text_wr_data,
+  input logic [TEXT_SZ-1:0] text_wr_addr
 );
 
 // The screen is this & each character is this big

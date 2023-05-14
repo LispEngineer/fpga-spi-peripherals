@@ -686,6 +686,7 @@ way to do this without using th
   * Use WSL2 Ubuntu 22 LTS for `srec_cat` command
   * `srec_cat isoFont.mif -Memory_Initialization_File -Output isoFont.hex -Intel`
   * `srec_cat starting_text.mif -Memory_Initialization_File -Output starting_text.hex -Intel`
+  * After doing that, the files need to be converted to Windows line endings
 
 ## Reverse engineering
 
