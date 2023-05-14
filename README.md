@@ -687,6 +687,8 @@ way to do this without using th
   * `srec_cat isoFont.mif -Memory_Initialization_File -Output isoFont.hex -Intel`
   * `srec_cat starting_text.mif -Memory_Initialization_File -Output starting_text.hex -Intel`
   * After doing that, the files need to be converted to Windows line endings
+  * Then, you need to symlink the `.hex` files into `simulation/modelsim` directory.
+    (Yes, you can do symbolic links in Windows.)
 
 ## Reverse engineering
 
