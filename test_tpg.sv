@@ -63,6 +63,7 @@ initial begin
   #(RESET_DUR); 
   reset <= 1'b0;
   #(POST_RESET_DUR);
+  #(HALF_CLOCK_DUR);
 
   toggle_restart <= ~toggle_restart;
   #(CLOCK_DUR * 10);
