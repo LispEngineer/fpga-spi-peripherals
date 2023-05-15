@@ -31,6 +31,9 @@ Pimoroni Unicorn Hat Mini.
 
 ## TODO
 
+* JY-MCU JY-LKM1638 V:1.2
+  * Has 6 enables
+
 * 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
   *  [In Progress] Update SPI controller:
     * Add ability to set dcx signal during various bytes
