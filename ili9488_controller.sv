@@ -293,13 +293,22 @@ PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 
     // Binary data has 28 bytes to clear
     next_out_count       <= (OUT_BYTES_SZ)'(4);
     // 1-1-1 pixel format: 00_RGB_RGB 4.7.2.1 p 121
-    next_out_data[0]     <= {2'b0, {3{cur_pixels[7]}}, {3{cur_pixels[6]}}};
-    next_out_data[1]     <= {2'b0, {3{cur_pixels[5]}}, {3{cur_pixels[4]}}};
-    next_out_data[2]     <= {2'b0, {3{cur_pixels[3]}}, {3{cur_pixels[2]}}};
-    next_out_data[3]     <= {2'b0, {3{cur_pixels[1]}}, {3{cur_pixels[0]}}};
-    // next_out_data[3][7:6]<= 2'b0;
-    // next_out_data[3][5:3]<= cur_pixels[1] ? 3'b100 : 3'b010;
-    // next_out_data[3][2:0]<= cur_pixels[0] ? 3'b100 : 3'b010;
+    // next_out_data[0]     <= {2'b0, {3{cur_pixels[7]}}, {3{cur_pixels[6]}}};
+    // next_out_data[1]     <= {2'b0, {3{cur_pixels[5]}}, {3{cur_pixels[4]}}};
+    // next_out_data[2]     <= {2'b0, {3{cur_pixels[3]}}, {3{cur_pixels[2]}}};
+    // next_out_data[3]     <= {2'b0, {3{cur_pixels[1]}}, {3{cur_pixels[0]}}};
+    next_out_data[0][7:6]<= 2'b0;
+    next_out_data[1][7:6]<= 2'b0;
+    next_out_data[2][7:6]<= 2'b0;
+    next_out_data[3][7:6]<= 2'b0;
+    next_out_data[0][5:3]<= cur_pixels[7] ? fg_color : bg_color;
+    next_out_data[0][2:0]<= cur_pixels[6] ? fg_color : bg_color;
+    next_out_data[1][5:3]<= cur_pixels[5] ? fg_color : bg_color;
+    next_out_data[1][2:0]<= cur_pixels[4] ? fg_color : bg_color;
+    next_out_data[2][5:3]<= cur_pixels[3] ? fg_color : bg_color;
+    next_out_data[2][2:0]<= cur_pixels[2] ? fg_color : bg_color;
+    next_out_data[3][5:3]<= cur_pixels[1] ? fg_color : bg_color;
+    next_out_data[3][2:0]<= cur_pixels[0] ? fg_color : bg_color;
     next_dcx_start       <= '1; // Data
     next_dcx_flip        <= '0; // Do not flip
     refresh_mem_pos      <= refresh_mem_pos + (MEM_SZ)'(4);
