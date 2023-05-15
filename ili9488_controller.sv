@@ -27,7 +27,7 @@ module ili9488_controller #(
   // How long to wait before we start using the device in clock cycles?
   parameter POWER_UP_START = 32'd10_000_000, // 2/50ths of a second or 40ms
   // How long between refreshes do we wait in clock cycles?
-  parameter DELAY_START = 32'd1_000_000
+  parameter DELAY_START = 32'd50_000_000
 ) (
   input  logic clk,
   input  logic reset,
@@ -52,7 +52,7 @@ logic [OUT_BYTES_SZ-1:0] out_count;
 logic dcx_start;
 logic [1:0] dcx_flip;
 
-logic [7:0] next_out_data [OUT_BYTES];
+logic [7:0] next_out_data [OUT_BYTES] = '{ default: 8'h00 };
 logic [OUT_BYTES_SZ-1:0] next_out_count;
 logic next_dcx_start;
 logic [1:0] next_dcx_flip;
@@ -132,22 +132,29 @@ localparam LAST_MEMORY_BYTE = MEMORY_BYTES; // 8 bytes at a time
 logic [MEM_SZ-1:0] refresh_mem_pos;
 
 ////////////////////////////////////////////////////////////////////////////
-// Display different colors every now and then
+// Display characters
 
-logic [27:0] disp_color_count = 28'b0010__0000_0000__0000_0000__0000_0000;
-logic  [7:0] display_byte;
+logic toggle_restart = '0;
+logic toggle_next = '0;
+logic [7:0] cur_pixels;
 
-// assign display_byte = {2'b0, disp_color_count[27:25], disp_color_count[27:25]};
+text_pixel_generator text_gen_inst (
+  .clk, .reset,
 
-always_ff @(posedge clk) begin: change_colors
-  disp_color_count <= disp_color_count + 1'd1;
-  // Only update the color while the delay is going on,
-  // to prevent screen tearing
-  if (reset)
-    disp_color_count <= '0;
-  else if (state == S_DELAY)
-    display_byte <= {2'b0, disp_color_count[27:25], disp_color_count[27:25]};
-end: change_colors
+  .toggle_restart,
+  .toggle_next,
+
+  .cur_pixels,
+
+  // We're not using these signals... yet
+  .cur_char(),
+
+  .clk_text_wr(),
+  .text_wr_ena(),
+  .text_wr_data(),
+  .text_wr_addr()
+);
+
 
 ////////////////////////////////////////////////////////////////////////////
 // Main ILI9488 state machine
@@ -260,24 +267,26 @@ always_ff @(posedge clk) begin: uhm_main
     next_out_count       <= (OUT_BYTES_SZ)'(1);
     next_out_data[0]     <= 8'h2C;
     refresh_mem_pos      <= '0;
+
+    // Start generating character pixels now
+    toggle_restart       <= ~toggle_restart;
   end: start_refresh_mem
 
   S_REFRESH_MEM: begin: do_refresh_mem
-    // Send 8 bytes at a time until we're done
+    // Send 4 bytes at a time until we're done
     // Binary data has 28 bytes to clear
-    next_out_count       <= (OUT_BYTES_SZ)'(8);
-    next_out_data[0]     <= display_byte;
-    next_out_data[1]     <= display_byte;
-    next_out_data[2]     <= display_byte;
-    next_out_data[3]     <= display_byte;
-    next_out_data[4]     <= display_byte;
-    next_out_data[5]     <= display_byte;
-    next_out_data[6]     <= display_byte;
-    next_out_data[7]     <= display_byte;
+    next_out_count       <= (OUT_BYTES_SZ)'(4);
+    next_out_data[0]     <= {1'b0, {3{cur_pixels[7]}}, 1'b0, {3{cur_pixels[6]}}};
+    next_out_data[1]     <= {1'b0, {3{cur_pixels[5]}}, 1'b0, {3{cur_pixels[4]}}};
+    next_out_data[2]     <= {1'b0, {3{cur_pixels[3]}}, 1'b0, {3{cur_pixels[2]}}};
+    next_out_data[3]     <= {1'b0, {3{cur_pixels[1]}}, 1'b0, {3{cur_pixels[0]}}};
     next_dcx_start       <= '1; // Data
     next_dcx_flip        <= '0; // Do not flip
-    refresh_mem_pos      <= refresh_mem_pos + (MEM_SZ)'(8);
+    refresh_mem_pos      <= refresh_mem_pos + (MEM_SZ)'(4);
     state                <= S_SEND_COMMAND;
+
+    toggle_next          <= ~toggle_next; // Prepare the next set of character pixels
+
     if (refresh_mem_pos >= LAST_MEMORY_BYTE) begin
       return_after_command <= S_END_REFRESH;
     end else begin

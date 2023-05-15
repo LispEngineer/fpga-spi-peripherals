@@ -99,7 +99,9 @@ text_ram	text_ram_inst (
 
 // 4096 byte ROM = 16 height x 256 characters (x 8 width_bits)
 
-logic [11:0] rom_rd_addr;
+localparam ROM_ADDR_SZ = 12;
+
+logic [ROM_ADDR_SZ-1:0] rom_rd_addr;
 logic [7:0] rom_data;
 assign cur_pixels = rom_data;
 
@@ -131,8 +133,8 @@ logic [TEXT_SZ-1:0] next_text_rd_row_start;
 // (which has a number of ROM addresses) for the specific
 // pixel row we're reading from now.
 always_comb begin: calc_rom_addr
-  rom_rd_addr = (char * CHAR_HEIGHT) + pixel_row; // (*16) == (<<4)
-  next_text_rd_row_start = text_rd_row_start + TEXT_WIDTH;
+  rom_rd_addr = (ROM_ADDR_SZ)'((char * CHAR_HEIGHT) + pixel_row); // (*16) == (<<4)
+  next_text_rd_row_start = (TEXT_SZ)'(text_rd_row_start + TEXT_WIDTH);
 end: calc_rom_addr
 
 
