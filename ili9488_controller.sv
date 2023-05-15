@@ -138,6 +138,9 @@ logic toggle_restart = '0;
 logic toggle_next = '0;
 logic [7:0] cur_pixels;
 
+localparam fg_color = 3'b100;
+localparam bg_color = 3'b010;
+
 text_pixel_generator text_gen_inst (
   .clk, .reset,
 
@@ -180,6 +183,10 @@ always_ff @(posedge clk) begin: uhm_main
 3A 8'bx110_x001 - 3 bits/pixel
 3A 8'bx110_x101 - 16 bits/pixel (theoretical, see p 121)
 3A 8'bx110_x110 - 18 bits/pixel
+
+PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 a 1 w 0x02 u
+  Display inversion control - two dot inversion
+
 .\spicl COM3 s a 0 w 0x2A a 1 w 0,0,1,0xDF u
 .\spicl COM3 s a 0 w 0x2B a 1 w 0,0,1,0x3F u
 .\spicl COM3 s a 0 w 0x11 u
@@ -207,6 +214,13 @@ always_ff @(posedge clk) begin: uhm_main
       next_out_data[1]     <= 8'b0110_0001; // 18 bits per pixel RGP; 3 bits per pixel MCU
     end: init_1
     2: begin: init_2
+      // Display inversion control 5.3.5 p 225
+      // (No idea what this does but it won't work without it)
+      next_out_count       <= (OUT_BYTES_SZ)'(2);
+      next_out_data[0]     <= 8'hB4;
+      next_out_data[1]     <= 8'h02; // 2-Dot inversion
+    end: init_2
+    3: begin: init_3
       // Column address set 5.2.22 p 175
       next_out_count       <= (OUT_BYTES_SZ)'(5);
       next_out_data[0]     <= 8'h2A;
@@ -214,8 +228,8 @@ always_ff @(posedge clk) begin: uhm_main
       next_out_data[2]     <= 8'h00;
       next_out_data[3]     <= 8'h01;
       next_out_data[4]     <= 8'hDF;
-    end: init_2
-    3: begin: init_3
+    end: init_3
+    4: begin: init_4
       // Page address set 5.2.23 p 177
       next_out_count       <= (OUT_BYTES_SZ)'(5);
       next_out_data[0]     <= 8'h2B;
@@ -224,25 +238,25 @@ always_ff @(posedge clk) begin: uhm_main
       // next_out_data[2]     <= 8'h00;
       // next_out_data[3]     <= 8'h01;
       next_out_data[4]     <= 8'h3F;
-    end: init_3
-    4: begin: init_4
+    end: init_4
+    5: begin: init_5
       // Disable sleep - 5.2.13 p 166
       // Must wait 5ms before the next command
       next_out_count       <= (OUT_BYTES_SZ)'(1);
       next_out_data[0]     <= 8'h11;
-    end: init_4
-    5: begin: init_5
+    end: init_5
+    6: begin: init_6
       // Wait 5ms before the next command
       state                <= S_DELAY;
       power_up_counter     <= CLK_5ms;
       // return_after_command <= S_INIT;
-    end: init_5
-    6: begin: init_6
+    end: init_6
+    7: begin: init_7
       // Display on - 5.2.21 p 174
       next_out_count       <= (OUT_BYTES_SZ)'(1);
       next_out_data[0]     <= 8'h29;
       return_after_command <= S_REFRESH_MEM_START;
-    end: init_6
+    end: init_7
     endcase // init_step
   end: do_init
 
@@ -268,7 +282,9 @@ always_ff @(posedge clk) begin: uhm_main
     next_out_data[0]     <= 8'h2C;
     refresh_mem_pos      <= '0;
 
-    // Start generating character pixels now
+    // Start generating character pixels now, 
+    // it will be ready by the time we use cur_pixels
+    // (takes about 3? cycles).
     toggle_restart       <= ~toggle_restart;
   end: start_refresh_mem
 
@@ -276,10 +292,14 @@ always_ff @(posedge clk) begin: uhm_main
     // Send 4 bytes at a time until we're done
     // Binary data has 28 bytes to clear
     next_out_count       <= (OUT_BYTES_SZ)'(4);
-    next_out_data[0]     <= {1'b0, {3{cur_pixels[7]}}, 1'b0, {3{cur_pixels[6]}}};
-    next_out_data[1]     <= {1'b0, {3{cur_pixels[5]}}, 1'b0, {3{cur_pixels[4]}}};
-    next_out_data[2]     <= {1'b0, {3{cur_pixels[3]}}, 1'b0, {3{cur_pixels[2]}}};
-    next_out_data[3]     <= {1'b0, {3{cur_pixels[1]}}, 1'b0, {3{cur_pixels[0]}}};
+    // 1-1-1 pixel format: 00_RGB_RGB 4.7.2.1 p 121
+    next_out_data[0]     <= {2'b0, {3{cur_pixels[7]}}, {3{cur_pixels[6]}}};
+    next_out_data[1]     <= {2'b0, {3{cur_pixels[5]}}, {3{cur_pixels[4]}}};
+    next_out_data[2]     <= {2'b0, {3{cur_pixels[3]}}, {3{cur_pixels[2]}}};
+    next_out_data[3]     <= {2'b0, {3{cur_pixels[1]}}, {3{cur_pixels[0]}}};
+    // next_out_data[3][7:6]<= 2'b0;
+    // next_out_data[3][5:3]<= cur_pixels[1] ? 3'b100 : 3'b010;
+    // next_out_data[3][2:0]<= cur_pixels[0] ? 3'b100 : 3'b010;
     next_dcx_start       <= '1; // Data
     next_dcx_flip        <= '0; // Do not flip
     refresh_mem_pos      <= refresh_mem_pos + (MEM_SZ)'(4);

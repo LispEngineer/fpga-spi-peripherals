@@ -35,15 +35,19 @@ Pimoroni Unicorn Hat Mini.
   * Has 6 enables
 
 * 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
-  *  [In Progress] Update SPI controller:
-    * Add ability to set dcx signal during various bytes
+  *  [DONE] Update SPI controller:
+    * [DONE] Add ability to set dcx signal during various bytes
       * Start high or low
       * Switch after N bytes
       * This can be used for the Command or Data pin
-    * Improve test bench to test this
-    * Fix off-by-one error in counting half-bits
+    * [DONE] Improve test bench to test this
+    * [DONE] Fix off-by-one error in counting half-bits
     * Fix inter-byte delay due to above off-by-one error
-  * Implement basic ILI9488 controller on top of SPI controller
+  * [DONE] Implement basic ILI9488 controller on top of SPI controller
+  * [DONE] Implement a 60x20 character interface (1,200 bytes)
+    * Reuse the 8x16 font previously used in VGA interface
+  * Make the 60x20 character interface allow choice of foreground and background
+    colors by making each character 8 + 6 bits long
   * Implement 3-bit-per-pixel bitmap interface for ILI9488 display
     * 153,600 pixels x 3 bits per pixel = 460,800 bits for memory
     * 51,200 locations at 3 pixels of 3 bits each (fitting in our 9-bit block RAMs)
@@ -52,16 +56,6 @@ Pimoroni Unicorn Hat Mini.
     * 2 pixels per byte in SPI interface
     * 76,800 bytes to refresh the screen
     * Provide a display memory from which we'll read the data
-  * Maybe implement a 60x20 character interface instead (1,200 bytes)
-    * Output bitmapped characters directly from Character RAM
-    * Maybe make a routine that starts reading from Character RAM and feeds
-      pixels into a FIFO for the SPI interface to read?
-      * How would the clock-divided SPI interface read just one byte from FIFO?
-      * Maybe use a toggle signal, and whenever the divided thing toggles, another
-        outside part sees that and loads a value from the FIFO - that necessarily
-        adds another cycle of latency though
-    * The Character Generator FIFO can be started by a start signal
-    * Reuse the 8x16 font previously used in VGA interface
   * Enable full 20MHz speed on the SPI interface
     * Use a PLL to go from 50MHz to 80MHz
     * Use a 4x `CLK_DIV`
