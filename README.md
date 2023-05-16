@@ -37,11 +37,14 @@ Pimoroni Unicorn Hat Mini.
   * It seems to rotate by one character position every refresh (which is currently
     set to 1 second for debugging)
 * It seems to draw an extra row of pixels - maybe it's an off by one error in pixel count
+  * Sometimes it seems it is ignoring the 0x2C Memory Write command
+* Now it just doesn't work at all...!!!
+  * Is my panel dead? Did I destroy it somehow? Are my GPIOs dead?
 
 ## TODO
 
 * JY-MCU JY-LKM1638 V:1.2
-  * Has 6 enables
+  * Has 6 enables to daisy chain this module
 
 * 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
   *  [DONE] Update SPI controller:
