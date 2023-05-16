@@ -27,7 +27,16 @@ Pimoroni Unicorn Hat Mini.
 * Unicorn Hat Mini-specific controller
   * Binary mode only (i.e., RGB non-grayscale)
 * UHM demo
-* [in progress] ILI9488 480x320 LCD
+* ILI9488 480x320 LCD with 60x20 character interface
+
+## Known Bugs
+
+* Every now and then, upon download, the ILI9488 gets into an odd mode where
+  it is off by a little bit
+  * It seems to have a bad first row of pixels
+  * It seems to rotate by one character position every refresh (which is currently
+    set to 1 second for debugging)
+* It seems to draw an extra row of pixels - maybe it's an off by one error in pixel count
 
 ## TODO
 
@@ -48,6 +57,7 @@ Pimoroni Unicorn Hat Mini.
     * Reuse the 8x16 font previously used in VGA interface
   * Make the 60x20 character interface allow choice of foreground and background
     colors by making each character 8 + 6 bits long
+    * Add a "blink" bit that will swap foreground and background color every second
   * Implement 3-bit-per-pixel bitmap interface for ILI9488 display
     * 153,600 pixels x 3 bits per pixel = 460,800 bits for memory
     * 51,200 locations at 3 pixels of 3 bits each (fitting in our 9-bit block RAMs)
@@ -59,7 +69,7 @@ Pimoroni Unicorn Hat Mini.
   * Enable full 20MHz speed on the SPI interface
     * Use a PLL to go from 50MHz to 80MHz
     * Use a 4x `CLK_DIV`
-    * See how fast this chip can really go (despite 250ns limit in the docs
+    * See how fast this chip can really go (despite 250ns limit in the docs)
   * Reduce delays 
 
 * Unicorn Hat Mini

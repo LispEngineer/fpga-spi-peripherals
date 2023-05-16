@@ -27,7 +27,13 @@ module ili9488_controller #(
   // How long to wait before we start using the device in clock cycles?
   parameter POWER_UP_START = 32'd10_000_000, // 2/50ths of a second or 40ms
   // How long between refreshes do we wait in clock cycles?
-  parameter DELAY_START = 32'd50_000_000
+  parameter DELAY_START = 32'd50_000_000,
+
+  // DO NOT CHANGE THESE - from text_pixel_generator
+  parameter TEXT_WIDTH  = 60,
+  parameter TEXT_HEIGHT = 20,
+  parameter TEXT_LEN = TEXT_WIDTH * TEXT_HEIGHT,
+  parameter TEXT_SZ = $clog2(TEXT_LEN)
 ) (
   input  logic clk,
   input  logic reset,
@@ -37,7 +43,13 @@ module ili9488_controller #(
   output logic sdi,      // In to ILI9488 from controller; Previously MOSI
   input  logic sdo,      // Out to ILI9488 from controller; UNUSED; previously MISO
   output logic cs,       // Chip select (previously SS) - active low
-  output logic dcx       // Parameter/Data (High)/Command (Low)
+  output logic dcx,      // Parameter/Data (High)/Command (Low)
+
+  // Character write interface to text RAM
+  input logic               clk_text_wr,
+  input logic               text_wr_ena,
+  input logic         [7:0] text_wr_data,
+  input logic [TEXT_SZ-1:0] text_wr_addr
 );
 
 localparam OUT_BYTES = 8;
@@ -122,7 +134,7 @@ logic [4:0] init_step;
 // Memory refresher
 localparam SCREEN_WIDTH = 480;
 localparam SCREEN_HEIGHT = 320;
-localparam PIXEL_COUNT = 480 * 320;
+localparam PIXEL_COUNT = 480 * 320; // This is 2^11 * 75 (75 = 5 * 5 * 3)
 localparam PIXELS_PER_BYTE_111 = 2;
 localparam MEMORY_BYTES = PIXEL_COUNT / PIXELS_PER_BYTE_111;
 localparam MEM_SZ = $clog2(MEMORY_BYTES + 1);
@@ -138,8 +150,8 @@ logic toggle_restart = '0;
 logic toggle_next = '0;
 logic [7:0] cur_pixels;
 
-localparam fg_color = 3'b100;
-localparam bg_color = 3'b010;
+localparam fg_color = 3'b011;
+localparam bg_color = 3'b100;
 
 text_pixel_generator text_gen_inst (
   .clk, .reset,
@@ -152,10 +164,10 @@ text_pixel_generator text_gen_inst (
   // We're not using these signals... yet
   .cur_char(),
 
-  .clk_text_wr(),
-  .text_wr_ena(),
-  .text_wr_data(),
-  .text_wr_addr()
+  .clk_text_wr,
+  .text_wr_ena,
+  .text_wr_data,
+  .text_wr_addr
 );
 
 
@@ -316,7 +328,8 @@ PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 
 
     toggle_next          <= ~toggle_next; // Prepare the next set of character pixels
 
-    if (refresh_mem_pos >= LAST_MEMORY_BYTE) begin
+    // If we're drawing the last 8 pixels, we should be done now
+    if (refresh_mem_pos >= (LAST_MEMORY_BYTE - 4 - 2)) begin // FIXME: is this the off by one error?
       return_after_command <= S_END_REFRESH;
     end else begin
       return_after_command <= S_REFRESH_MEM;

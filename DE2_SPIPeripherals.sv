@@ -89,6 +89,23 @@ assign reset = ~KEY[3];
 `define ILI9488_DEMO
 `ifdef ILI9488_DEMO
 
+// Same as the modules below
+localparam TEXT_WIDTH  = 60;
+localparam TEXT_HEIGHT = 20;
+localparam TEXT_LEN = TEXT_WIDTH * TEXT_HEIGHT;
+localparam TEXT_SZ = $clog2(TEXT_LEN);
+
+// Character RAM write interface - keep writing D to position 0
+// (that worked).
+// Now write a selected byte to a selected position when key pressed.
+logic               text_wr_ena;
+logic         [7:0] text_wr_data;
+logic [TEXT_SZ-1:0] text_wr_addr;
+
+assign text_wr_ena = ~KEY[0];
+assign text_wr_data = SW[7:0];
+assign text_wr_addr = (TEXT_SZ)'(SW[17:8]);
+
 ili9488_controller #(
   .CLK_DIV(4) // Use 12 to slow down things for testing; 2 sometimes works but shouldn't (40ns < 50ns minimum clock)
 ) ili9488_inst (
@@ -99,7 +116,13 @@ ili9488_controller #(
   .sdi(GPIO[3]),
   .sck(GPIO[5]),
   .cs (GPIO[7]),
-  .dcx(GPIO[9])
+  .dcx(GPIO[9]),
+
+  // Character memory interface
+  .clk_text_wr(CLOCK_50),
+  .text_wr_ena,
+  .text_wr_data,
+  .text_wr_addr
 );
 
 `endif // ILI9488_DEMO
