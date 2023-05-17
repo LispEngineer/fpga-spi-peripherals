@@ -219,6 +219,9 @@ assign GPIO[23] = sck;
 //////////////////////////////////////////////////////////////////////
 // LED & KEY TM1618 demo
 
+// Debug data
+logic [7:0] raw_data [4];
+
 led_n_key_demo /* #(
   // All parameters default
 ) */ led_n_key_inst (
@@ -228,8 +231,13 @@ led_n_key_demo /* #(
   // SPI interface
   .sck, // Serial Clock
   .dio_i, .dio_o, .dio_e,
-  .cs  // Chip select (previously SS) - active low
+  .cs,  // Chip select (previously SS) - active low
+
+  // Debugging
+  .raw_data
 );
+
+assign hex_display = {raw_data[3], raw_data[2], raw_data[1], raw_data[0]};
 
 // END LED & KEY TM1618 memory mapping
 /////////////////////////////////////////////////////////////////////

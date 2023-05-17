@@ -32,7 +32,13 @@ module led_n_key_controller #(
   // DELAY_START of 230_000 causes the state machine to cycle about 210 times a second.
   // The TM1638 only scans the keypad once every 4.7ms or about 212 times a second.
   // (v1.3 p8)
-  parameter DELAY_START = 32'd0_460_000
+  parameter DELAY_START = 32'd0_460_000,
+
+  // DO NOT EDIT THESE
+  // How many bytes of key data we read from TM1618
+  parameter IN_BYTES = 4,
+  parameter IN_BYTES_SZ = $clog2(IN_BYTES + 1)
+
 ) (
   input  logic clk,
   input  logic reset,
@@ -53,22 +59,24 @@ module led_n_key_controller #(
   input  logic [6:0] lk_hexes [8],
   input  logic [7:0] lk_decimals,
   input  logic [7:0] lk_big, // The big LEDs on top
-  output logic [7:0] lk_keys // The keys on the LED&KEY - 1 is pressed
+  output logic [7:0] lk_keys, // The keys on the LED&KEY - 1 is pressed
 
   // TODO: Take brightness
+
+  // Debug outputs
+  output logic [7:0] raw_data [IN_BYTES]
 );
 
 
 //////////////////////////////////////////////////////////////////////
 // LED & KEY TM1618 memory mapping
 
+// how many bytes we WRITE to the LED&KEY
 localparam NUM_LED_BYTES = 16;
-// How many bytes of key data we read from TM1618
-localparam IN_BYTES = 4;
-localparam IN_BYTES_SZ = $clog2(IN_BYTES + 1);
 
 // Raw data read input from the TM1638
 logic [7:0] in_data [IN_BYTES];
+assign raw_data = in_data;
 
 // Raw TM1618 output memory (16 bytes)
 logic [7:0] lk_memory [NUM_LED_BYTES] = '{ default: 8'd0 };

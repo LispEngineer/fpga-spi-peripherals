@@ -33,7 +33,10 @@ module led_n_key_demo #(
   output logic dio_o, // data in/out - OUT
   input  logic dio_i, // data in/out - IN
   output logic dio_e, // data in/out - enable for in/out buffer
-  output logic cs     // Chip select (previously SS) - active low
+  output logic cs,    // Chip select (previously SS) - active low
+
+  // Debug outputs
+  output logic [7:0] raw_data [4]  
 );
 
 //////////////////////////////////////////////////////////////////////
@@ -74,7 +77,9 @@ led_n_key_controller #(
   .lk_hexes,
   .lk_decimals,
   .lk_big,
-  .lk_keys
+  .lk_keys,
+
+  .raw_data
 );
 
 /////////////////////////////////////////////////////////////////////

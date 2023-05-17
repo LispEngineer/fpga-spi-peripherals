@@ -305,12 +305,24 @@ All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
 
 # JY-MCU JY-LKM1638 V:1.2
 
+[Info](https://erriez.github.io/ErriezLKM1638/)
+
 This is similar to the LED&KEY except it has a pass-through port to allows
-six chip-selects to chain six of them using the same SPI DIO.
+six chip-selects to chain six of them using the same SPI DIO. The LEDs
+are apparently bi-color as well.
+
+This must be run with 5V because 3.3V won't give enough juice to handle the
+buttons
 
 * Running it with the standard LED&KEY demo produces correct LED behavior
-  for the 7-segment & decimal display.
-* Pushing button S1 lights LED1 but no other button pushes do anything
+  for the 7-segment & decimal display EXCEPT for the 2nd to last segment,
+  which shows nothing on the circumfrence LEDs, just the hyphen and the dot.
+* Pushing buttons lights green LEDs. So the buttons are the same.
+
+## TODO:
+
+* Figure out the red LEDs
+* Figure out the 2nd to last 7-segment display
 
 --------------------------------------------------------------------------------------------------------
 
