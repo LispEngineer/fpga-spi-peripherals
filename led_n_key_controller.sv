@@ -3,6 +3,8 @@
 //
 // LED&KEY controller - an 8 LED, 8 7-seg with decimal, 8 button device
 // based on the TM1638.
+// This also works with the JY-MCU/JY-LKM138/V:1.2 with the addition of the
+// optional lk_bicolor. "big" will be red, and "bicolor" will be green.
 //
 // See Titan Micro Electronics TM1638 Datasheet v1.3.
 //
@@ -59,6 +61,7 @@ module led_n_key_controller #(
   input  logic [6:0] lk_hexes [8],
   input  logic [7:0] lk_decimals,
   input  logic [7:0] lk_big, // The big LEDs on top
+  input  logic [7:0] lk_bicolor, // Optional: For JY-MCU/JY-LKM1638/V:1.2 this is the second color LED
   output logic [7:0] lk_keys, // The keys on the LED&KEY - 1 is pressed
 
   // TODO: Take brightness
@@ -86,7 +89,8 @@ always_comb begin
   for (int i = 0; i < 8; i++) begin: for1
     lk_memory[i * 2][6:0] = lk_hexes[i];
     lk_memory[i * 2][7] = lk_decimals[i];
-    lk_memory[i * 2 + 1][0] = lk_big[i];
+    lk_memory[i * 2 + 1][0] = lk_big[i];     // Bit 0 for LED&KEY big red LEDs; for JY-MCU: Bit 0 = Green, Bit 1 = Red
+    lk_memory[i * 2 + 1][1] = lk_bicolor[i]; // Bit 0 for LED&KEY big red LEDs; for JY-MCU: Bit 0 = Green, Bit 1 = Red
   end: for1
   // Keys are mapped: 1-4 are the 0 bits of the 4 bytes
   // 5-8 are the 4 bits of the 4 bytes

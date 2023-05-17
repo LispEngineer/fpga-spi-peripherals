@@ -22,7 +22,10 @@ module led_n_key_demo #(
   // DELAY_START of 230_000 causes the state machine to cycle about 210 times a second.
   // The TM1638 only scans the keypad once every 4.7ms or about 212 times a second.
   // (v1.3 p8)
-  parameter DELAY_START = 32'd0_460_000
+  parameter DELAY_START = 32'd0_460_000,
+
+  // Is this an original LED&KEY or a JY-MCU module with bi-color LEDs?
+  parameter IS_JYMCU = 0
 ) (
   input  logic clk,
   input  logic reset,
@@ -46,19 +49,31 @@ module led_n_key_demo #(
 logic [6:0] lk_hexes [8];
 logic [7:0] lk_decimals;
 logic [7:0] lk_big; // The big LEDs on top
+logic [7:0] lk_bicolor; // The big LEDs on top
 logic [7:0] lk_keys; // The keys on the LED&KEY - 1 is pressed
 
 `ifdef IS_QUARTUS
 // QuestaSim doesn't like initial blocks (vlog-7061)
 initial begin
-  for (int i = 0; i < 7; i++)
+  for (int i = 0; i < 6; i++)
     lk_hexes[i] = 7'b1 << i;
-  lk_hexes[7]   = 7'b1;
-  lk_decimals   = 8'b1;
+  // The 7th one would start with the dash, but we're going to do that
+  // separately
+  lk_hexes[6]   = 7'b1;
+  lk_hexes[7]   = 7'b100_0010; // Start the hyphen on this one, the LEFTMOST one
+  lk_decimals   = 8'b1; // This is the RIGHTMOST decimal
 end
 `endif // IS_QUARTUS
 
-assign lk_big = lk_keys;
+generate
+  if (IS_JYMCU == '0) begin
+    assign lk_big = lk_keys;
+    assign lk_bicolor = '0;
+  end else begin
+    assign lk_big = {lk_keys[7:2], 2'b0};
+    assign lk_bicolor = {2'b0, lk_keys[5:0]};
+  end
+endgenerate
 
 led_n_key_controller #(
   .CLK_DIV(CLK_DIV),
@@ -77,7 +92,9 @@ led_n_key_controller #(
   .lk_hexes,
   .lk_decimals,
   .lk_big,
+  .lk_bicolor, // For JY-MCU
   .lk_keys,
+
 
   .raw_data
 );

@@ -222,9 +222,9 @@ assign GPIO[23] = sck;
 // Debug data
 logic [7:0] raw_data [4];
 
-led_n_key_demo /* #(
-  // All parameters default
-) */ led_n_key_inst (
+led_n_key_demo #(
+  .IS_JYMCU('1) // Set to '1 if a JY-MCU or '0 if a LED&KEY
+) led_n_key_inst (
   .clk(CLOCK_50),
   .reset,
 

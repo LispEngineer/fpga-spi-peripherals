@@ -28,8 +28,15 @@ Pimoroni Unicorn Hat Mini.
   * Binary mode only (i.e., RGB non-grayscale)
 * UHM demo
 * ILI9488 480x320 LCD with 60x20 character interface
+  * This needs to be debugged when I get a fixed panel
+* JY-MCU JY-LKM1638 V:1.2 with bi-color LEDs using the
+  LED&KEY controller with additional input for the bi-color LEDs
+  * Default LED is green, bi-color LED is red.
+  * Requires 5V to work properly with the DE2-115.
 
 ## Known Bugs
+
+ILI9488
 
 * Every now and then, upon download, the ILI9488 gets into an odd mode where
   it is off by a little bit
@@ -44,7 +51,10 @@ Pimoroni Unicorn Hat Mini.
 ## TODO
 
 * JY-MCU JY-LKM1638 V:1.2
-  * Has 6 enables to daisy chain this module
+  * Has 6 enables to daisy chain this module (or have multiple LED&KEYs sharing
+    the SPI bus).
+  * Expand LED&KEY controller to have a parameterized number of boards, from 1
+    to 6, and check them in order.
 
 * 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
   *  [DONE] Update SPI controller:
@@ -305,24 +315,28 @@ All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
 
 # JY-MCU JY-LKM1638 V:1.2
 
-[Info](https://erriez.github.io/ErriezLKM1638/)
+* [Info](https://erriez.github.io/ErriezLKM1638/)
+* [Schematic](http://we.easyelectronics.ru/part/osobennosti-adresacii-kontrollera-tm1638-dlya-indikatorov-s-oa.html)
 
 This is similar to the LED&KEY except it has a pass-through port to allows
 six chip-selects to chain six of them using the same SPI DIO. The LEDs
-are apparently bi-color as well.
+are bi-color green/red.
 
 This must be run with 5V because 3.3V won't give enough juice to handle the
 buttons
 
-* Running it with the standard LED&KEY demo produces correct LED behavior
-  for the 7-segment & decimal display EXCEPT for the 2nd to last segment,
-  which shows nothing on the circumfrence LEDs, just the hyphen and the dot.
+* The 7-segment display is identical.
 * Pushing buttons lights green LEDs. So the buttons are the same.
+* The red LEDs are the next bit up on the same bytes as the green LEDs.
+  * If both are lit together, it looks red (but you can see a tiny bit of green
+    if you really look hard).
 
-## TODO:
+## Implementation
 
-* Figure out the red LEDs
-* Figure out the 2nd to last 7-segment display
+* Expanded LED&KEY controller to have a bicolor LED choice.
+  * Standard `big` input is green; `bicolor` input is red.
+* There is no point in lighting both red & green LEDs as it just looks red.
+
 
 --------------------------------------------------------------------------------------------------------
 
