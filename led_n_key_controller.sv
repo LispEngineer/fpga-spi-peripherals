@@ -71,7 +71,7 @@ localparam IN_BYTES_SZ = $clog2(IN_BYTES + 1);
 logic [7:0] in_data [IN_BYTES];
 
 // Raw TM1618 output memory (16 bytes)
-logic [7:0] lk_memory [NUM_LED_BYTES];
+logic [7:0] lk_memory [NUM_LED_BYTES] = '{ default: 8'd0 };
 
 // Handle the LED & KEY memory layout from the raw data above
 always_comb begin

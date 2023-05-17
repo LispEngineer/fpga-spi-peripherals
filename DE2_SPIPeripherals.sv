@@ -86,7 +86,7 @@ logic reset;
 assign reset = ~KEY[3];
 
 
-`define ILI9488_DEMO
+`undef ILI9488_DEMO
 `ifdef ILI9488_DEMO
 
 // Same as the modules below
@@ -190,7 +190,7 @@ unicorn_hat_mini_demo /* #(
 // LED & KEY (TM1638)
 // See Titan Micro Electronics TM1638 Datasheet v1.3:
 
-
+`define USE_LEDnKEY_TOP_LEVEL 
 `ifdef USE_LEDnKEY_TOP_LEVEL
 
 //////////////////////////////////////////////////////////////////////

@@ -329,7 +329,7 @@ PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 
     toggle_next          <= ~toggle_next; // Prepare the next set of character pixels
 
     // If we're drawing the last 8 pixels, we should be done now
-    if (refresh_mem_pos >= (LAST_MEMORY_BYTE - 4 - 2)) begin // FIXME: is this the off by one error?
+    if (refresh_mem_pos >= (LAST_MEMORY_BYTE - 4)) begin // FIXME: is this the off by one(-ish) error?
       return_after_command <= S_END_REFRESH;
     end else begin
       return_after_command <= S_REFRESH_MEM;

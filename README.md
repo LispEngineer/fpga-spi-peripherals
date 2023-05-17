@@ -303,10 +303,21 @@ All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
 
 --------------------------------------------------------------------------------------------------------
 
+# JY-MCU JY-LKM1638 V:1.2
+
+This is similar to the LED&KEY except it has a pass-through port to allows
+six chip-selects to chain six of them using the same SPI DIO.
+
+* Running it with the standard LED&KEY demo produces correct LED behavior
+  for the 7-segment & decimal display.
+* Pushing button S1 lights LED1 but no other button pushes do anything
+
+--------------------------------------------------------------------------------------------------------
+
 
 # Pimoroni Unicorn Hat Mini for FPGA
 
-# Implementation notes
+## Implementation notes
 
 * 3.3V and 5V power (and Ground) required
 * SCK & SDO pins required
