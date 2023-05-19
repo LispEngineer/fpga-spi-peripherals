@@ -86,7 +86,7 @@ logic reset;
 assign reset = ~KEY[3];
 
 
-`undef ILI9488_DEMO
+`define ILI9488_DEMO
 `ifdef ILI9488_DEMO
 
 // Same as the modules below
@@ -106,17 +106,34 @@ assign text_wr_ena = ~KEY[0];
 assign text_wr_data = SW[7:0];
 assign text_wr_addr = (TEXT_SZ)'(SW[17:8]);
 
+logic sdo, sdi, sck, cs, dcx;
+
+assign sdo = GPIO[1];
+assign GPIO[3] = sdi;
+assign GPIO[5] = sck;
+assign GPIO[7] = cs;
+assign GPIO[9] = dcx;
+
+assign LEDG[4:0] = {sdo, sdi, sck, cs, dcx};
+
 ili9488_controller #(
-  .CLK_DIV(4) // Use 12 to slow down things for testing; 2 sometimes works but shouldn't (40ns < 50ns minimum clock)
+  .CLK_DIV(6) // Use 12 to slow down things for testing; 2 sometimes works but shouldn't (40ns < 50ns minimum clock)
 ) ili9488_inst (
   .clk(CLOCK_50), 
   .reset,
 
+/*
   .sdo(GPIO[1]),
   .sdi(GPIO[3]),
   .sck(GPIO[5]),
   .cs (GPIO[7]),
   .dcx(GPIO[9]),
+*/
+  .sdo,
+  .sdi,
+  .sck,
+  .cs ,
+  .dcx,
 
   // Character memory interface
   .clk_text_wr(CLOCK_50),
@@ -124,6 +141,8 @@ ili9488_controller #(
   .text_wr_data,
   .text_wr_addr
 );
+
+
 
 `endif // ILI9488_DEMO
 
@@ -190,7 +209,7 @@ unicorn_hat_mini_demo /* #(
 // LED & KEY (TM1638)
 // See Titan Micro Electronics TM1638 Datasheet v1.3:
 
-`define USE_LEDnKEY_TOP_LEVEL 
+`undef USE_LEDnKEY_TOP_LEVEL 
 `ifdef USE_LEDnKEY_TOP_LEVEL
 
 //////////////////////////////////////////////////////////////////////

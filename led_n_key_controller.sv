@@ -60,8 +60,8 @@ module led_n_key_controller #(
   // Logic high is lit up or key pressed.
   input  logic [6:0] lk_hexes [8],
   input  logic [7:0] lk_decimals,
-  input  logic [7:0] lk_big, // The big LEDs on top
-  input  logic [7:0] lk_bicolor, // Optional: For JY-MCU/JY-LKM1638/V:1.2 this is the second color LED
+  input  logic [7:0] lk_big, // The big LEDs on top (green on JY-MCU)
+  input  logic [7:0] lk_bicolor, // Optional: For JY-MCU/JY-LKM1638/V:1.2 this is the second color LED (red)
   output logic [7:0] lk_keys, // The keys on the LED&KEY - 1 is pressed
 
   // TODO: Take brightness

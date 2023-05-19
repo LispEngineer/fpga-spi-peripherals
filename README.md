@@ -36,17 +36,19 @@ Pimoroni Unicorn Hat Mini.
 
 ## Known Bugs
 
-ILI9488
+### ILI9488
 
-* Every now and then, upon download, the ILI9488 gets into an odd mode where
-  it is off by a little bit
-  * It seems to have a bad first row of pixels
-  * It seems to rotate by one character position every refresh (which is currently
-    set to 1 second for debugging)
-* It seems to draw an extra row of pixels - maybe it's an off by one error in pixel count
-  * Sometimes it seems it is ignoring the 0x2C Memory Write command
-* Now it just doesn't work at all...!!!
-  * Is my panel dead? Did I destroy it somehow? Are my GPIOs dead?
+* Got a new display and now it's working as expected. Very frustrating to have had a failed
+  display. Took a few tries to make it work for some unknown reason, but now it is reliably
+  working and refreshing constantly. (Running it on 3.3V.)
+  * And, now after 10 minutes of it working properly, it is doing the same exact thing
+    as the previous one... Just lighting up gray and doing nothing now.
+  * Even changing to the full configuration does not help.
+  * Testing it with the SPIDriver indicates the new display is also dead now.
+  * Also testing it with 5V instead doesn't work.
+  * (It does respond to command 0x0B with 0xE8 though, which is desired response.)
+  * I guess these displays are poorly made OR I'm doing something to break them.
+    But then why would they work briefly?
 
 ## TODO
 
@@ -56,18 +58,7 @@ ILI9488
   * Expand LED&KEY controller to have a parameterized number of boards, from 1
     to 6, and check them in order.
 
-* 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
-  *  [DONE] Update SPI controller:
-    * [DONE] Add ability to set dcx signal during various bytes
-      * Start high or low
-      * Switch after N bytes
-      * This can be used for the Command or Data pin
-    * [DONE] Improve test bench to test this
-    * [DONE] Fix off-by-one error in counting half-bits
-    * Fix inter-byte delay due to above off-by-one error
-  * [DONE] Implement basic ILI9488 controller on top of SPI controller
-  * [DONE] Implement a 60x20 character interface (1,200 bytes)
-    * Reuse the 8x16 font previously used in VGA interface
+* ILI9488 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
   * Make the 60x20 character interface allow choice of foreground and background
     colors by making each character 8 + 6 bits long
     * Add a "blink" bit that will swap foreground and background color every second
@@ -867,6 +858,59 @@ PS:43 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0x29 
 ```
 ... and the display turned on!
 
+Original script above (changed for 1-1-1):
+```
+.\spicl COM3 s a 0 w 0xC0 a 1 w 0x17,0x15 u
+.\spicl COM3 s a 0 w 0xC1 a 1 w 0x41 u
+.\spicl COM3 s a 0 w 0xC5 a 1 w 0x00,0x12,0x80 u
+.\spicl COM3 s a 0 w 0x36 a 1 w 0x48 u
+.\spicl COM3 s a 0 w 0x3A a 1 w 0x61 u
+.\spicl COM3 s a 0 w 0xB0 a 1 w 0x00 u
+.\spicl COM3 s a 0 w 0xB1 a 1 w 0xA0 u
+.\spicl COM3 s a 0 w 0xB4 a 1 w 0x02 u
+.\spicl COM3 s a 0 w 0xB6 a 1 w 0x02,0x02,0x3B u
+.\spicl COM3 s a 0 w 0xB7 a 1 w 0xC6 u
+.\spicl COM3 s a 0 w 0xF7 a 1 w 0xA8,0x51,0x2c,0x82 u
+.\spicl COM3 s a 0 w 0x11 u
+.\spicl COM3 s a 0 w 0x29 u
+```
+
+Current initialization script in SV Controller:
+```
+.\spicl COM3 s a 0 w 0x36 a 1 w 0xe8 u
+.\spicl COM3 s a 0 w 0x3a a 1 w 0x61 u
+.\spicl COM3 s a 0 w 0xb4 a 1 w 0x02 u
+.\spicl COM3 s a 0 w 0x2a a 1 w 0,0,1,0xDF u
+.\spicl COM3 s a 0 w 0x2b a 1 w 0,0,1,0x3F u
+.\spicl COM3 s a 0 w 0x11 u
+.\spicl COM3 s a 0 w 0x29 u
+.\spicl COM3 s a 0 w 0x2c a 1 w 0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64 u
+.\spicl COM3 s a 0 w 0x3c a 1 w 0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64,0x64 u
+```
+
+Combined initialization:
+```
+.\spicl COM3 s a 0 w 0x36 a 1 w 0xe8 u
+.\spicl COM3 s a 0 w 0x3A a 1 w 0x61 u
+.\spicl COM3 s a 0 w 0xB4 a 1 w 0x02 u
+.\spicl COM3 s a 0 w 0x2a a 1 w 0,0,1,0xDF u
+.\spicl COM3 s a 0 w 0x2b a 1 w 0,0,1,0x3F u
+
+.\spicl COM3 s a 0 w 0xC0 a 1 w 0x17,0x15 u
+.\spicl COM3 s a 0 w 0xC1 a 1 w 0x41 u
+.\spicl COM3 s a 0 w 0xC5 a 1 w 0x00,0x12,0x80 u
+
+.\spicl COM3 s a 0 w 0xB0 a 1 w 0x00 u
+.\spicl COM3 s a 0 w 0xB1 a 1 w 0xA0 u
+.\spicl COM3 s a 0 w 0xB6 a 1 w 0x02,0x02,0x3B u
+.\spicl COM3 s a 0 w 0xB7 a 1 w 0xC6 u
+.\spicl COM3 s a 0 w 0xF7 a 1 w 0xA8,0x51,0x2c,0x82 u
+.\spicl COM3 s a 0 w 0x11 u
+# <pause>
+.\spicl COM3 s a 0 w 0x29 u
+```
+
+
 It seems the initial display memory was a uniform gray color.
 
 What is the MADCTL D5 ? Column and page reversed?
@@ -1052,3 +1096,149 @@ the "dummy parameter" that is shown.
 
 
 
+-----------------------------------------------------------------------
+
+# WaveShare 2-inch LCD Module
+
+Specs:
+* ST7789 Driver
+* 320x240
+* 3.3V or 5V
+
+References:
+* [Waveshare Wiki](https://www.waveshare.com/wiki/2inch_LCD_Module)
+  * [Schematic](https://www.waveshare.com/w/upload/e/ee/2inch_LCD_Module_SchDoc.pdf)
+  * [ST7789VW Datasheet](https://www.waveshare.com/w/upload/a/ad/ST7789VW.pdf)
+  * [Manual](https://www.waveshare.net/w/upload/b/b1/2inch_LCD_Module.pdf)
+
+Initial notes:
+* ST7789 seems extremely similar to ILI9488
+  * 0x36 = basically the same
+  * 0x3A = similar, no 1-1-1 mode
+    * No 1-1-1 mode
+    * Has a 4-4-4, 5-6-5 and 6-6-6 mode
+    * 4-4-4: 3Ah=>03h (p104)
+      * 2 pixels in 3 bytes
+    * 5-6-5: (05h) (p105)
+      * 2 pixels in 4 bytes
+    * 6-6-6: (06h) (p106)
+      * 2 pixels in 6 bytes
+
+## Initialization
+
+Routine from `LCD_2inch.py` in 
+[source code](https://www.waveshare.com/w/upload/e/e9/LCD_Module_code.7z):
+(hex)
+
+* 36 00
+* 3A 05
+* 21
+* 2A 00 00 01 3F
+* 2B 00 00 00 EF
+* B2 0C 0C 00 33 33
+* B7 35
+* BB 1F
+* C0 2C
+* C2 01
+* C3 12
+* C4 20
+* C6 0F
+* D0 A4 A1
+* E0 D0 08 11 08 0C 15 39 33 50 36 13 14 29 2D
+* E1 D0 08 10 08 06 06 39 44 51 0B 16 14 2F 31 
+* 21
+* 11
+* 29
+
+This translates as:
+
+* 36 00
+  * Memory access control p 215 (address order, etc.)
+* 3A 05
+  * Interface pixel format p 224
+* 21
+  * Display inversion on
+* 2A 00 00 01 3F
+* 2B 00 00 00 EF
+  * Above two are screen size: column, row address set
+* B2 0C 0C 00 33 33
+  * Porch setting p 263
+* B7 35
+  * Gate control p 267
+* BB 1F
+  * VCOM Setting p 272
+* C0 2C
+  * LCM Control p 276
+* C2 01
+  * VDV and VRH Command Enable p 278
+* C3 12
+  * VRH Set p 279
+* C4 20
+  * VDV Set
+* C6 0F
+  * Frame Rate Control in Normal Mode p 285
+* D0 A4 A1
+  * Power control 1 (these are the default settings)
+* E0 D0 08 11 08 0C 15 39 33 50 36 13 14 29 2D
+  * Positive voltage gama control p 295
+* E1 D0 08 10 08 06 06 39 44 51 0B 16 14 2F 31 
+  * Negative voltage gamma control p 297
+* 21
+  * (as above)
+* 11
+  * Sleep out (pause 5ms)
+* 29
+  * Display on
+
+```
+#.\spicl COM3 s a 0 w 0x36 a 1 w 0x00 u
+#.\spicl COM3 s a 0 w 0x3a a 1 w 0x05 u
+.\spicl COM3 s a 0 w 0x36 a 1 w 0x70 u
+.\spicl COM3 s a 0 w 0x3a a 1 w 0x03 u
+.\spicl COM3 s a 0 w 0x21 a 1 u
+.\spicl COM3 s a 0 w 0x2a a 1 w 0x00,0x00,0x01,0x3F u
+.\spicl COM3 s a 0 w 0x2b a 1 w 0x00,0x00,0x00,0xeF u
+.\spicl COM3 s a 0 w 0xb2 a 1 w 0x0c,0x0c,0x00,0x33,0x33 u
+.\spicl COM3 s a 0 w 0xb7 a 1 w 0x35 u
+.\spicl COM3 s a 0 w 0xbb a 1 w 0x1f u
+.\spicl COM3 s a 0 w 0xc0 a 1 w 0x2c u
+.\spicl COM3 s a 0 w 0xc2 a 1 w 0x01 u
+.\spicl COM3 s a 0 w 0xc3 a 1 w 0x12 u
+.\spicl COM3 s a 0 w 0xc4 a 1 w 0x20 u
+.\spicl COM3 s a 0 w 0xc6 a 1 w 0x0f u
+.\spicl COM3 s a 0 w 0xd0 a 1 w 0xa4,0xa1 u
+.\spicl COM3 s a 0 w 0xe0 a 1 w 0xd0,0x08,0x11,0x08,0x0c,0x15,0x39,0x33,0x50,0x36,0x13,0x14,0x29,0x2d u
+.\spicl COM3 s a 0 w 0xe1 a 1 w 0xd0,0x08,0x10,0x08,0x06,0x06,0x39,0x44,0x51,0x0b,0x16,0x14,0x2f,0x31 u
+#.\spicl COM3 s a 0 w 0x21 a 1 u
+.\spicl COM3 s a 0 w 0x11 a 1 u
+.\spicl COM3 s a 0 w 0x29 a 1 u
+```
+
+This default setting has it writing from the bottom right corner left then up, when turned such
+that the "2inch LCD Module" is at the bottom".
+
+To make it use 4-4-4 pixel mode:
+* 3A 03
+* 2C RRRRGGGG_BBBBRRRR_GGGGBBBB
+  * 2C F0 0F 00 - for red
+* That worked
+
+To make it write along the long edge:
+(With the module in portrait, with the 2inch LCD Module on the bottom)
+* 36
+  * 80 = write from the top right, toward the left and down
+  * 40 = write from the bottom left, toward the right and up
+  * 20 = write from the bottom right, up then left
+  * A0 = write from the top right, down then left
+  * C0 = write from the top left, across right then down
+  * E0 = write from the top left, down then right
+  * 10 = write from the bottom right, left then up
+  * 30 = write from the bottom right, up then left
+  * 50 = write from the bottom left, right then up
+  * 70 = write from the bottom left, up then right
+    * THIS IS WHAT WE WANT
+
+```
+.\spicl COM3 s a 0 w 0x36 a 1 w 0x70 u
+.\spicl COM3 s a 0 w 0x3a a 1 w 0x03 u
+```

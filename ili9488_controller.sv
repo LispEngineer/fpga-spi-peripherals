@@ -27,7 +27,7 @@ module ili9488_controller #(
   // How long to wait before we start using the device in clock cycles?
   parameter POWER_UP_START = 32'd10_000_000, // 2/50ths of a second or 40ms
   // How long between refreshes do we wait in clock cycles?
-  parameter DELAY_START = 32'd50_000_000,
+  parameter DELAY_START = 32'd1_000_000,
 
   // DO NOT CHANGE THESE - from text_pixel_generator
   parameter TEXT_WIDTH  = 60,
@@ -129,7 +129,7 @@ state_t return_after_command;
 logic send_busy_seen;
 logic [2:0] xmit_4_count;
 logic [31:0] power_up_counter = POWER_UP_START;
-logic [4:0] init_step;
+logic [5:0] init_step;
 
 // Memory refresher
 localparam SCREEN_WIDTH = 480;
@@ -150,8 +150,8 @@ logic toggle_restart = '0;
 logic toggle_next = '0;
 logic [7:0] cur_pixels;
 
-localparam fg_color = 3'b011;
-localparam bg_color = 3'b100;
+localparam fg_color = 3'b100;
+localparam bg_color = 3'b000;
 
 text_pixel_generator text_gen_inst (
   .clk, .reset,
@@ -251,24 +251,80 @@ PS:38 C:\Program Files (x86)\Excamera Labs\SPIDriver> .\spicl COM3 s a 0 w 0xB4 
       // next_out_data[3]     <= 8'h01;
       next_out_data[4]     <= 8'h3F;
     end: init_4
-    5: begin: init_5
+    5: begin
+      // Power control 1
+      next_out_count       <= (OUT_BYTES_SZ)'(3);
+      next_out_data[0]     <= 8'hC0;
+      next_out_data[1]     <= 8'h17;
+      next_out_data[2]     <= 8'h15;
+    end
+    6: begin
+      // Power control 2
+      next_out_count       <= (OUT_BYTES_SZ)'(2);
+      next_out_data[0]     <= 8'hC1;
+      next_out_data[1]     <= 8'h41;
+    end
+    7: begin
+      // VCOM Control (takes 4 parameters, but only 3 provided?)
+      next_out_count       <= (OUT_BYTES_SZ)'(4);
+      next_out_data[0]     <= 8'hC5;
+      next_out_data[1]     <= 8'h00;
+      next_out_data[2]     <= 8'h12;
+      next_out_data[3]     <= 8'h80;
+    end
+    8: begin
+      // Interface Mode Control - Use SDO (0x80 would use SDA for DIO and disable SDO)
+      next_out_count       <= (OUT_BYTES_SZ)'(2);
+      next_out_data[0]     <= 8'hB0;
+      next_out_data[1]     <= 8'h00;
+    end
+    9: begin
+      // Frame rate control  (takes two parameters, this ignored one)
+      next_out_count       <= (OUT_BYTES_SZ)'(2);
+      next_out_data[0]     <= 8'hB1;
+      next_out_data[1]     <= 8'hA0;
+    end
+    10: begin
+      // Display function control (page 228)
+      next_out_count       <= (OUT_BYTES_SZ)'(4);
+      next_out_data[0]     <= 8'hB6;
+      next_out_data[1]     <= 8'h02;
+      next_out_data[2]     <= 8'h02;
+      next_out_data[3]     <= 8'h3B;
+    end
+    11: begin
+      // Entry mode set (page 232)
+      next_out_count       <= (OUT_BYTES_SZ)'(2);
+      next_out_data[0]     <= 8'hB7;
+      next_out_data[1]     <= 8'hC6;
+    end
+    12: begin
+      // Adjust Control 3 (page 276) - "use loose packet RGB 666"
+      next_out_count       <= (OUT_BYTES_SZ)'(5);
+      next_out_data[0]     <= 8'hF7;
+      next_out_data[1]     <= 8'hA8;
+      next_out_data[2]     <= 8'h51;
+      next_out_data[3]     <= 8'h2c;
+      next_out_data[4]     <= 8'h82;
+    end
+    13: begin
       // Disable sleep - 5.2.13 p 166
       // Must wait 5ms before the next command
       next_out_count       <= (OUT_BYTES_SZ)'(1);
       next_out_data[0]     <= 8'h11;
-    end: init_5
-    6: begin: init_6
-      // Wait 5ms before the next command
+    end
+    14: begin
+      // Wait 5ms before the next command when disabling sleep
       state                <= S_DELAY;
       power_up_counter     <= CLK_5ms;
       // return_after_command <= S_INIT;
-    end: init_6
-    7: begin: init_7
+    end
+    15: begin
       // Display on - 5.2.21 p 174
       next_out_count       <= (OUT_BYTES_SZ)'(1);
       next_out_data[0]     <= 8'h29;
       return_after_command <= S_REFRESH_MEM_START;
-    end: init_7
+    end
     endcase // init_step
   end: do_init
 
