@@ -27,30 +27,29 @@ Pimoroni Unicorn Hat Mini.
 * Unicorn Hat Mini-specific controller
   * Binary mode only (i.e., RGB non-grayscale)
 * UHM demo
-* ILI9488 480x320 LCD with 60x20 character interface
-  * This needs to be debugged when I get a fixed panel
 * JY-MCU JY-LKM1638 V:1.2 with bi-color LEDs using the
   LED&KEY controller with additional input for the bi-color LEDs
   * Default LED is green, bi-color LED is red.
   * Requires 5V to work properly with the DE2-115.
+* [Waveshare 2.0-inch TFT LCD](https://www.waveshare.com/wiki/2inch_LCD_Module) 
+  controller with ST7789 chip (which is nearly identical to the ILI9488).
+  * Demo which allows changing the characters displayed
+
+### Implemented but unknown if it should be used
+
+* ILI9488 480x320 LCD with 60x20 character interface
+  * [FIXME] This either broke two panels or the panels I used are bad.
+    Maybe I need to use the exact initialization sequence in the example
+    Python code?
 
 ## Known Bugs
 
-### ILI9488
-
-* Got a new display and now it's working as expected. Very frustrating to have had a failed
-  display. Took a few tries to make it work for some unknown reason, but now it is reliably
-  working and refreshing constantly. (Running it on 3.3V.)
-  * And, now after 10 minutes of it working properly, it is doing the same exact thing
-    as the previous one... Just lighting up gray and doing nothing now.
-  * Even changing to the full configuration does not help.
-  * Testing it with the SPIDriver indicates the new display is also dead now.
-  * Also testing it with 5V instead doesn't work.
-  * (It does respond to command 0x0B with 0xE8 though, which is desired response.)
-  * I guess these displays are poorly made OR I'm doing something to break them.
-    But then why would they work briefly?
-
 ## TODO
+
+* Figure out how to parameterize the text character generator
+  1. To take a variable size text (height, width) and instantiate the correct RAM
+  2. To take an optional amount of color pixels
+  3. To take an optional blink pixel
 
 * JY-MCU JY-LKM1638 V:1.2
   * Has 6 enables to daisy chain this module (or have multiple LED&KEYs sharing
@@ -58,18 +57,14 @@ Pimoroni Unicorn Hat Mini.
   * Expand LED&KEY controller to have a parameterized number of boards, from 1
     to 6, and check them in order.
 
-* ILI9488 3.5" SPI Display [product](http://www.lcdwiki.com/3.5inch_SPI_Module_ILI9488_SKU:MSP3520)
-  * Make the 60x20 character interface allow choice of foreground and background
-    colors by making each character 8 + 6 bits long
-    * Add a "blink" bit that will swap foreground and background color every second
-  * Implement 3-bit-per-pixel bitmap interface for ILI9488 display
-    * 153,600 pixels x 3 bits per pixel = 460,800 bits for memory
-    * 51,200 locations at 3 pixels of 3 bits each (fitting in our 9-bit block RAMs)
-    * (This seems like an inconvenient memory structure; you can't write just one pixel.)
-  * Implement 3-bit-per-pixel SPI interface
-    * 2 pixels per byte in SPI interface
-    * 76,800 bytes to refresh the screen
-    * Provide a display memory from which we'll read the data
+* SPI pixel Display enhancements
+  * Make the WxH character interface allow choice of foreground and background
+    colors by making each character 8 + N bits long
+    * N = 6 for 1-1-1
+    * N = 8 for ANSI style colors (bright & dim, 1-1-1-1)
+    * N = 24 for 4-4-4 capability
+    * Add a "blink" bit that will swap foreground and background color every second?
+  * Implement 3-bit-per-pixel bitmap interface
   * Enable full 20MHz speed on the SPI interface
     * Use a PLL to go from 50MHz to 80MHz
     * Use a 4x `CLK_DIV`
@@ -1199,6 +1194,7 @@ This translates as:
 .\spicl COM3 s a 0 w 0x2a a 1 w 0x00,0x00,0x01,0x3F u
 .\spicl COM3 s a 0 w 0x2b a 1 w 0x00,0x00,0x00,0xeF u
 .\spicl COM3 s a 0 w 0xb2 a 1 w 0x0c,0x0c,0x00,0x33,0x33 u
+
 .\spicl COM3 s a 0 w 0xb7 a 1 w 0x35 u
 .\spicl COM3 s a 0 w 0xbb a 1 w 0x1f u
 .\spicl COM3 s a 0 w 0xc0 a 1 w 0x2c u
@@ -1206,6 +1202,7 @@ This translates as:
 .\spicl COM3 s a 0 w 0xc3 a 1 w 0x12 u
 .\spicl COM3 s a 0 w 0xc4 a 1 w 0x20 u
 .\spicl COM3 s a 0 w 0xc6 a 1 w 0x0f u
+
 .\spicl COM3 s a 0 w 0xd0 a 1 w 0xa4,0xa1 u
 .\spicl COM3 s a 0 w 0xe0 a 1 w 0xd0,0x08,0x11,0x08,0x0c,0x15,0x39,0x33,0x50,0x36,0x13,0x14,0x29,0x2d u
 .\spicl COM3 s a 0 w 0xe1 a 1 w 0xd0,0x08,0x10,0x08,0x06,0x06,0x39,0x44,0x51,0x0b,0x16,0x14,0x2f,0x31 u

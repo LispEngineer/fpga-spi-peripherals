@@ -86,7 +86,69 @@ logic reset;
 assign reset = ~KEY[3];
 
 
-`define ILI9488_DEMO
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////
+
+
+`define WAVESHARE_2inch_LCD_DEMO
+`ifdef WAVESHARE_2inch_LCD_DEMO
+
+// Same as the modules below
+localparam TEXT_WIDTH  = 40;
+localparam TEXT_HEIGHT = 15;
+localparam TEXT_LEN = TEXT_WIDTH * TEXT_HEIGHT;
+localparam TEXT_SZ = $clog2(TEXT_LEN);
+
+// Character RAM write interface:
+// Write a selected byte to a selected position when key pressed.
+logic               text_wr_ena;
+logic         [7:0] text_wr_data;
+logic [TEXT_SZ-1:0] text_wr_addr;
+
+assign text_wr_ena = ~KEY[0];
+assign text_wr_data = SW[7:0];
+assign text_wr_addr = (TEXT_SZ)'(SW[17:8]);
+
+logic din, sck, cs, dcx;
+
+assign GPIO[3] = din;
+assign GPIO[5] = sck;
+assign GPIO[7] = cs;
+assign GPIO[9] = dcx;
+
+assign LEDG[4:0] = {din, sck, cs, dcx};
+
+st7789_controller #(
+  .CLK_DIV(4) // Use a higher number to slow down things for testing
+) waveshare_inst (
+  .clk(CLOCK_50), 
+  .reset,
+
+  .sdo(), // No data out (unless you configure din as DIO somehow)
+  .sdi(din),
+  .sck,
+  .cs ,
+  .dcx,
+
+  // Character memory interface
+  .clk_text_wr(CLOCK_50),
+  .text_wr_ena,
+  .text_wr_data,
+  .text_wr_addr
+);
+
+`endif // WAVESHARE_2inch_LCD_DEMO
+
+
+
+/////////////////////////////////////////////////////////////////////////////////
+
+
+
+`undef ILI9488_DEMO
 `ifdef ILI9488_DEMO
 
 // Same as the modules below
