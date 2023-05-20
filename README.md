@@ -81,9 +81,8 @@ Pimoroni Unicorn Hat Mini.
 * `seven_segment` - My usual combinational 7-segment driver
 * `spi_3wire_controller` - a simple controller for a 3-wire SPI with
   `DIO` input/output
-* `test_spi` - a Quartus test bench to show that the waveforms the
-  SPI controller generates are as expected
-  * (TODO) This does not do input testing
+  * Also works with 4-wire SPI by ignoring the tri-state enable and using separate
+    lines for `DIN` and `DOUT` (or `SDI` and `SDO`)
 * `tm1638_generic` - a simple controller for TM1638 boards built on
   the 3-wire SPI. These boards have 16 bytes of output RAM
   (for LEDs), 4 bytes of input RAM (for keys), and a brightness
@@ -93,6 +92,7 @@ Pimoroni Unicorn Hat Mini.
   inexpensively (such as [Amazon](https://www.amazon.com/dp/B0B7GMTMVB))
   * 8 7-segs (with decimal point), 8 LEDs, 8 buttons
   * no crosstalk/interference between any functions
+  * Also works for the JY-MCU chainable version, including its bicolor LEDs
 * `qyf_tm1638_controller` - a simple controller for the QYF board
   also (obviously) based on the TM1638 (such as [Amazon](https://www.amazon.com/dp/B0BXDL1LG1))
   * Not as nice as the above, but has 16 keys which cannot be safely multi-
@@ -101,9 +101,24 @@ Pimoroni Unicorn Hat Mini.
   [Pimoroni Unicorn Hat Mini](https://shop.pimoroni.com/en-us/products/unicorn-hat-mini)
   which handles RGB color (without grayscale for now). Takes a 17x7 array of
   1-bit RGB pixels and refreshes the display regularly.
+* `text_pixel_generator*` - Offers a text character RAM of a given size and generates
+  pixels for video display based on toggled inputs, to allow for displays that do not
+  have single-clock resolution such as our SPI displays below.
+* `ili9488_controller` - A controller for a 3.5-inch TFT display driven by the ILI9488
+  chip, with a text interface.
+  * You probably *should not use this code* as I have had two TFT displays fail. I do not
+    know if the displays were bad or somehow they failed because of the code.
+* `st7789_controller` - A controller for an ST7789VW driven 2.0-inch Waveshare display
+  with a 40x15 text interface. Seems to work just fine. Uses the exact initialization
+  routine from the Waveshare RPi Python sample code.
 * `*_demo` - simple demo applications for the boards
+* `test_*` - Questa (ModelSim) test harnesses for various other modules
+  * `test_spi` - a Quartus test bench to show that the waveforms the
+    SPI controller generates are as expected
+    * (TODO) This does not do input testing
 
-## Implementation Notes
+
+## DE2 Implementation Notes
 
 * Terasic DE2-115 has a 14-pin `EX_IO` that has some 3V3 I/Os that have pull-up and pull-down
   resistors.
@@ -112,13 +127,26 @@ Pimoroni Unicorn Hat Mini.
   * `EX_IO[4]` also has a 33Ω in-line resistor between the pin and the FPGA, after the pull-up (unknown reason)
   * These may be useful for I²C and 3-wire SPI implementations that need pull-ups
 
+
+--------------------------------------------------------------------------------------------------------
+
+
+# SPI Implementation Notes
+
+* It is a two-cycle implementation where I output the clock in two parts
+  as opposed to the four parts I used in my earlier I²C implementation.
+
+* The 3-wire SPI implementation is done and supports:
+  * MSB and LSB-first data transmission.
+  * Optional delay after releasing chip select.
+  * WRITE ONLY (for now)
+  * Parameter configured maximum write burst size.
+
 --------------------------------------------------------------------------------------------------------
 
 # TM1638 Button/Display for FPGA
 
-Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
-
-# TODO
+## TODO
 
 * [DONE] Implement the read side of the 3-wire SPI module
   * [DONE] Rename the module to 3-wire SPI or something not specific to HT16D35A
@@ -134,7 +162,7 @@ Copyright ⓒ Douglas P. Fields, Jr. All Rights Reserved.
 * [DONE] Create a specific module that works with the QYF 8-segment & 16 key version
 
 
-# TM1638 References
+## TM1638 References
 
 Datasheet:
 * [TM1638 English Translation](https://github.com/maxint-rd/TM16xx/blob/master/documents/LED%20driver%20TM1638en.pdf) - unknown version, marked updated 2011-04-09 on page 18
@@ -154,7 +182,7 @@ Amazon links:
 * [LED&KEY](https://www.amazon.com/dp/B0B7GMTMVB?psc=1&ref=ppx_yo2ov_dt_b_product_details)
 * [QYF-TM1638](https://www.amazon.com/dp/B0BXDL1LG1?psc=1&ref=ppx_yo2ov_dt_b_product_details) "Digital Tube Module"
 
-# Implementation notes
+## TM1638 Implementation notes
 
 * This seems to use the same protocol as my Unicorn Hat Mini implementation
   (which was a write-only implementation of the protocol), with a few changes
@@ -220,8 +248,9 @@ See flowchart on p11 of v1.3 document:
 4. Set brightness to maximum (0x8F)
    * Table 5.3, 8'b10_00_1_111 = Display on, Pulse width 14/16 (maximum)
 
+## LED & KEY Details
 
-# LED & KEY Details
+This board is built around the TM1638 chip.
 
 * The `DIO` ALTIOBUF *cannot* be open-drain for the TM1638 in the LED&KEY
   * If set to open-drain in the FPGA, the TM1638 will miss bits on input.
@@ -239,7 +268,7 @@ See flowchart on p11 of v1.3 document:
 
 * Works well with 3.3V
 
-## LED Memory Mapping
+### LED Memory Mapping
 
 7-segment displays:
 * Every even byte, bits 6:0, map in the usual 7-segment way
@@ -248,7 +277,7 @@ See flowchart on p11 of v1.3 document:
 8 big LEDs:
 * Every odd byte, bit 0, is the LED
 
-# QYF-TM1638 Details
+## QYF-TM1638 Details
 
 * I connected a QYF-1638 instead of an LED&KEY, using LED&KEY memory map
   * Key presses were not registered
@@ -263,7 +292,7 @@ See flowchart on p11 of v1.3 document:
 
 All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
 
-## QYF-TM1638 Connection
+### QYF-TM1638 Connection
 
 * This has built-in pull-up resistors (see schematic) and also capacitors
   on the lines (I do not know why it has capacitors)
@@ -271,7 +300,7 @@ All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
 * It does not need open-drain I/O buffers
 * So, just use a standard ALTIOBUF
 
-## QYF-TM1638 memory model
+### QYF-TM1638 memory model
 
 * Display: Looks like every other byte is used, starting with 0
   * One segment of all 8 displays are used for each input byte
@@ -292,14 +321,13 @@ All in all, the LED&KEY is a nicer, safer to use device than QYF-TM1638.
   * Maybe reject any keypresses that involve both 1-8 and corresponding 9-16
     simultaneously pressed
    
-## QYF-TM1638 Demo
+### QYF-TM1638 Demo
 
 * Keys make the digits go up or down by one
 * Decimal point goes around and around
 
---------------------------------------------------------------------------------------------------------
 
-# JY-MCU JY-LKM1638 V:1.2
+## JY-MCU JY-LKM1638 V:1.2
 
 * [Info](https://erriez.github.io/ErriezLKM1638/)
 * [Schematic](http://we.easyelectronics.ru/part/osobennosti-adresacii-kontrollera-tm1638-dlya-indikatorov-s-oa.html)
@@ -317,7 +345,7 @@ buttons
   * If both are lit together, it looks red (but you can see a tiny bit of green
     if you really look hard).
 
-## Implementation
+### JY-MCU Implementation
 
 * Expanded LED&KEY controller to have a bicolor LED choice.
   * Standard `big` input is green; `bicolor` input is red.
@@ -335,8 +363,6 @@ buttons
 * SCK & SDO pins required
 * 2 CS pins required for each half of the display
 * --> Total 7 pins required including power
-
-
 
 
 ## References
@@ -569,29 +595,12 @@ to get access to the "COM" port.
    * column 12, red, blue, green
 
 
-
-
-
---------------------------------------------------------------------------------------------------------
-
-
-# SPI Implementation Notes
-
-* It is a two-cycle implementation where I output the clock in two parts
-  as opposed to the four parts I used in my earlier I²C implementation.
-
-* The 3-wire SPI implementation is done and supports:
-  * MSB and LSB-first data transmission.
-  * Optional delay after releasing chip select.
-  * WRITE ONLY (for now)
-  * Parameter configured maximum write burst size.
-
 ## Open questions
 
-* Are the two HT16D35A chips wired in sync mode? (page 3, SYNC pin)
+* Are the two HT16D35A Unicorn Hat Mini chips wired in sync mode? (page 3, SYNC pin)
+
 
 --------------------------------------------------------------------------------------------------------
-
 
 
 # ILI9488 480x320 LCD Display Module
